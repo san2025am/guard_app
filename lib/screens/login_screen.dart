@@ -1,192 +1,113 @@
 import 'package:flutter/material.dart';
-import '../theme.dart';
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-
+import '../l10n/app_localizations.dart';
+import '../services/api.dart';
+import 'forgot_password_screen.dart';
+import 'home_guard.dart';
 
 class LoginScreen extends StatefulWidget {
+  static const route = '/login';
   const LoginScreen({super.key});
-
   @override
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final _formKey = GlobalKey<FormState>();
-  final _usernameController = TextEditingController();
-  final _passwordController = TextEditingController();
-  bool _obscure = true;
-  bool _remember = false;
+  final _form = GlobalKey<FormState>();
+  final _u = TextEditingController();
+  final _p = TextEditingController();
+  bool _obscure = true, _loading = false;
 
   @override
-  void dispose() {
-    _usernameController.dispose();
-    _passwordController.dispose();
-    super.dispose();
-  }
-
+  void dispose() { _u.dispose(); _p.dispose(); super.dispose(); }
 
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    final uri = Uri.parse('http://31.97.158.157/api/v1/api/auth/guard/login/'); // عدّل العنوان
-    try {
-      final res = await http.post(
-        uri,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'username': _usernameController.text.trim(),
-          'password': _passwordController.text,
-        }),
-      );
-
-      if (res.statusCode == 200) {
-        final data = jsonDecode(res.body);
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('access', data['access']);
-        await prefs.setString('refresh', data['refresh']);
-        await prefs.setString('username', data['user']['username']);
-        await prefs.setString('role', data['user']['role']);
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('تم تسجيل الدخول كحارس أمن')),
-        );
-        // TODO: انتقل إلى الصفحة الرئيسية للحارس
-        // Navigator.of(context).pushReplacement(...);
-      } else {
-        final body = jsonDecode(res.body);
-        final msg = body['detail']?.toString() ?? 'فشل تسجيل الدخول';
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
-      }
-    } catch (e) {
-      if (!mounted) return;
+    if (!_form.currentState!.validate()) return;
+    setState(() => _loading = true);
+    final r = await ApiService.guardLogin(_u.text.trim(), _p.text);
+    setState(() => _loading = false);
+    if (!mounted) return;
+    if (r['ok'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('خطأ في الاتصال: $e')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.login)),
+      );
+      Navigator.of(context).pushReplacementNamed(HomeGuard.route);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(r['message'] ?? 'Error')),
       );
     }
   }
 
-
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Directionality(
-      textDirection: TextDirection.rtl,
-      child: Scaffold(
-        body: Stack(
-          children: [
-            // Hero-like background
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    cs.brightness == Brightness.dark
-                        ? const Color(0xFF12161C)
-                        : const Color(0xFFF6F2EA),
-                    cs.surface.withOpacity(.2),
-                  ],
-                ),
-              ),
-            ),
-            Align(
-              alignment: Alignment.center,
-              child: SingleChildScrollView(
+    final t = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      body: Center(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(22),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 420),
+            child: Card(
+              elevation: 0,
+              child: Padding(
                 padding: const EdgeInsets.all(22),
-                child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 420),
-                  child: Container(
-                    padding: const EdgeInsets.all(22),
-                    decoration: BoxDecoration(
-                      color: cs.brightness == Brightness.dark
-                          ? const Color(0x4D000000)
-                          : Colors.white.withOpacity(.85),
-                      borderRadius: BorderRadius.circular(22),
-                      border: Border.all(color: Colors.white.withOpacity(.14)),
-                      boxShadow: [BoxShadow(color: Colors.black.withOpacity(.2), blurRadius: 30)],
-                    ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Image.asset('assets/images/logo.png', height: 78),
-                        const SizedBox(height: 10),
-                        Text('تسجيل الدخول', style: theme.textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w800)),
-                        const SizedBox(height: 12),
-                        Form(
-                          key: _formKey,
-                          child: Column(
-                            children: [
-                              TextFormField(
-                                controller: _usernameController,
-                                textInputAction: TextInputAction.next,
-                                decoration: const InputDecoration(
-                                  labelText: 'اسم المستخدم',
-                                  hintText: 'username',
-                                ),
-                                validator: (v) => (v == null || v.trim().isEmpty) ? 'أدخل اسم المستخدم' : null,
-                              ),
-                              const SizedBox(height: 10),
-                              TextFormField(
-                                controller: _passwordController,
-                                obscureText: _obscure,
-                                decoration: InputDecoration(
-                                  labelText: 'كلمة المرور',
-                                  hintText: '••••••••',
-                                  suffixIcon: IconButton(
-                                    onPressed: () => setState(() => _obscure = !_obscure),
-                                    icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                                  ),
-                                ),
-                                onFieldSubmitted: (_) => _submit(),
-                                validator: (v) => (v == null || v.isEmpty) ? 'أدخل كلمة المرور' : null,
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  Checkbox(
-                                    value: _remember,
-                                    onChanged: (val) => setState(() => _remember = val ?? false),
-                                  ),
-                                  const Text('تذكرني'),
-                                  const Spacer(),
-                                  TextButton(
-                                    onPressed: () {
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(content: Text('ميزة قيد التطوير: نسيت كلمة المرور')),
-                                      );
-                                    },
-                                    child: const Text('نسيت كلمة المرور؟'),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              SizedBox(
-                                width: double.infinity,
-                                child: ElevatedButton(
-                                  onPressed: _submit,
-                                  child: const Text('دخول'),
-                                ),
-                              ),
-                            ],
+                child: Form(
+                  key: _form,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Image.asset('assets/images/logo.png', height: 78),
+                      const SizedBox(height: 12),
+                      Text(t.login, style: Theme.of(context).textTheme.titleLarge),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _u,
+                        decoration: InputDecoration(labelText: t.username),
+                        textInputAction: TextInputAction.next,
+                        validator: (v) => (v==null||v.trim().isEmpty) ? t.username : null,
+                      ),
+                      const SizedBox(height: 10),
+                      TextFormField(
+                        controller: _p,
+                        decoration: InputDecoration(
+                          labelText: t.password,
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
+                            onPressed: ()=>setState(()=>_obscure=!_obscure),
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        Text(
-                          '© سنام الأمن',
-                          style: theme.textTheme.bodySmall?.copyWith(color: theme.textTheme.bodySmall?.color?.withOpacity(.8)),
-                        )
-                      ],
-                    ),
+                        obscureText: _obscure,
+                        onFieldSubmitted: (_) => _submit(),
+                        validator: (v) => (v==null||v.isEmpty) ? t.password : null,
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Spacer(),
+                          TextButton(
+                            onPressed: ()=> Navigator.of(context).pushNamed(ForgotPasswordScreen.route),
+                            child: Text(t.forgot_password),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: _loading ? null : _submit,
+                          icon: _loading
+                              ? const SizedBox(width:18,height:18,child:CircularProgressIndicator(strokeWidth:2))
+                              : const Icon(Icons.lock_open),
+                          label: Text(t.login),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
-          ],
+          ),
         ),
       ),
     );
