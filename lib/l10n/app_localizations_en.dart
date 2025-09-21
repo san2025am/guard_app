@@ -118,4 +118,10 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get coming_soon => 'Coming soon';
+
+  @override
+  String get logout => 'Logout';
+
+  @override
+  String get logoutTooltip => 'Sign out of the account';
 }

@@ -118,4 +118,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get coming_soon => 'قريبًا';
+
+  @override
+  String get logout => 'تسجيل الخروج';
+
+  @override
+  String get logoutTooltip => 'خروج من الحساب';
 }

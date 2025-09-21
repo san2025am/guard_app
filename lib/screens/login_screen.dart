@@ -26,6 +26,7 @@ class _LoginScreenState extends State<LoginScreen> {
     final r = await ApiService.guardLogin(_u.text.trim(), _p.text);
     setState(() => _loading = false);
     if (!mounted) return;
+
     if (r['ok'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(AppLocalizations.of(context)!.login)),

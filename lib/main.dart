@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart'; // إن لم تكن تستخدمه، أضفه: provider:^6.0.5
+import 'package:security_quard/services/api.dart';
 import 'app_settings.dart';
 import 'theme.dart';
 import 'l10n/app_localizations.dart';
@@ -67,7 +68,13 @@ class SanamApp extends StatelessWidget {
 class Shell extends StatelessWidget {
   final Widget child;
   const Shell({super.key, required this.child});
-
+  Future<void> _logout(BuildContext context) async {
+    await ApiService.logout();
+    Navigator.of(context).pushNamedAndRemoveUntil(
+      '/login', // LoginScreen.route
+          (route) => false,
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
@@ -82,6 +89,7 @@ class Shell extends StatelessWidget {
         appBar: AppBar(
           title: Text(t.app_title),
           actions: [
+
             // تبديل الثيم
             IconButton(
               tooltip: t.toggle_theme,
@@ -99,6 +107,11 @@ class Shell extends StatelessWidget {
                 PopupMenuItem(value: 'ar', child: Text(t.arabic)),
                 PopupMenuItem(value: 'en', child: Text(t.english)),
               ],
+            ),
+            IconButton(
+              icon: const Icon(Icons.logout),
+              tooltip: t.logout, // أو نص يدوي "تسجيل الخروج"
+              onPressed: () => _logout(context),
             ),
           ],
         ),

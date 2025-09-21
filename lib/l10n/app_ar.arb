@@ -36,5 +36,12 @@
     "open_requests_hint": "اعرض وتتبع طلباتك",
     "request_leave": "طلب إجازة",
     "request_leave_hint": "قدّم طلب إجازة للموافقة",
-    "coming_soon": "قريبًا"
+    "coming_soon": "قريبًا",
+
+
+      "logout": "تسجيل الخروج",
+      "logoutTooltip": "خروج من الحساب"
+
+
+
     }

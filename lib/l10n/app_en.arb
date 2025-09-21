@@ -37,7 +37,9 @@
     "open_requests_hint": "View and track your requests",
     "request_leave": "Request leave",
     "request_leave_hint": "Submit a leave request",
-    "coming_soon": "Coming soon"
+    "coming_soon": "Coming soon",
+    "logout": "Logout",
+     "logoutTooltip": "Sign out of the account"
   }
 
 

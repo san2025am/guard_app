@@ -319,6 +319,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coming soon'**
   String get coming_soon;
+
+  /// No description provided for @logout.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout'**
+  String get logout;
+
+  /// No description provided for @logoutTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign out of the account'**
+  String get logoutTooltip;
 }
 
 class _AppLocalizationsDelegate
