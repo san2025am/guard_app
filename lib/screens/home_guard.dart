@@ -5,7 +5,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_settings.dart';
 import '../models/employee.dart';
-import '../services/api.dart'; // لو عندك AppSettings (الثيم/اللغة)
+import '../services/api.dart';  // لو عندك AppSettings (الثيم/اللغة)
+
+import 'package:intl/intl.dart';
+import 'package:geolocator/geolocator.dart';
+
+import '../services/auth.dart' show getAuthHeader, logout; // عدّل المسار
+
+
+
 
 class HomeGuard extends StatelessWidget {
   static const route = '/home';
@@ -44,21 +52,17 @@ class _HomeGuardScreenState extends State<HomeGuardScreen> {
     final settings = context.read<AppSettings?>(); // قد يكون null لو ما تستخدم provider
     final isDark = settings?.themeMode == ThemeMode.dark;
 
-    return Directionality(
-      textDirection: (Localizations.localeOf(context).languageCode == 'ar')
-          ? TextDirection.rtl : TextDirection.ltr,
-      child: Scaffold(
+    return Scaffold(
 
-        body: IndexedStack(index: _index, children: _pages),
-        bottomNavigationBar: BottomNavigationBar(
-          currentIndex: _index,
-          onTap: (i) => setState(() => _index = i),
-          items: [
-            BottomNavigationBarItem(icon: const Icon(Icons.person), label: t.profile),
-            BottomNavigationBarItem(icon: const Icon(Icons.check_circle), label: t.attendance),
-            BottomNavigationBarItem(icon: const Icon(Icons.assignment), label: t.reports_requests),
-          ],
-        ),
+      body: IndexedStack(index: _index, children: _pages),
+      bottomNavigationBar: BottomNavigationBar(
+        currentIndex: _index,
+        onTap: (i) => setState(() => _index = i),
+        items: [
+          BottomNavigationBarItem(icon: const Icon(Icons.person), label: t.profile),
+          BottomNavigationBarItem(icon: const Icon(Icons.check_circle), label: t.attendance),
+          BottomNavigationBarItem(icon: const Icon(Icons.assignment), label: t.reports_requests),
+        ],
       ),
     );
   }
@@ -316,38 +320,40 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                       title: const Text("تعليمات الموظف"),
                       subtitle: Text(_safe(e.employeeInstructions)),
                     ),
-                  if (hasEmpInstr && hasLocInstr) _divider(),
-                  if (hasLocInstr)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const ListTile(
-                            contentPadding: EdgeInsets.zero,
-                            leading: Icon(Icons.location_on_outlined),
-                            title: Text("تعليمات المواقع"),
-                          ),
-                          ...e.locationInstructions!
-                              .where((s) => _has(s))
-                              .map((s) => Padding(
-                            padding: const EdgeInsetsDirectional.only(start: 40, bottom: 8),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Icon(Icons.circle, size: 8),
-                                const SizedBox(width: 8),
-                                Expanded(child: Text(s)),
-                              ],
-                            ),
-                          ))
-                              .toList(),
-                        ],
-                      ),
-                    ),
+
+
                 ],
               ),
             ),
+
+          if (e.tasks.isNotEmpty)
+            Card(
+              child: ExpansionTile(
+                leading: const Icon(Icons.assignment),
+                title: const Text("المهام"),
+                subtitle: Text('${e.tasks.length} مهمة'),
+                children: e.tasks.map((t) => ListTile(
+                  title: Text(t.title),
+                  subtitle: Text("${t.description}\nالموقع: ${t.locationName}"),
+                  trailing: Text(t.status),
+                )).toList(),
+              ),
+            ),
+
+          if (e.shifts.isNotEmpty)
+            Card(
+              child: ExpansionTile(
+                leading: const Icon(Icons.schedule),
+                title: const Text("الورديات"),
+                subtitle: Text('${e.shifts.length} وردية'),
+                children: e.shifts.map((s) => ListTile(
+                  title: Text(s.shiftName),
+                  subtitle: Text("التاريخ: ${s.date}\nمن ${s.startTime} إلى ${s.endTime}"),
+                  trailing: Text(s.active ? "نشطة" : "منتهية"),
+                )).toList(),
+              ),
+            ),
+
 
           const SizedBox(height: 12),
 
@@ -359,6 +365,7 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                 title: const Text("المواقع"),
                 subtitle: Text('${e.locations.length} موقع'),
                 children: e.locations.map((l) {
+
                   final hasLInstr = _has(l.instructions);
                   return Column(
                     children: [
@@ -443,10 +450,10 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
   }
 }
 
-/// تبويب 2: التحضير (واجهة مبدئية)
+
+
 class AttendancePage extends StatefulWidget {
   const AttendancePage({super.key});
-
   @override
   State<AttendancePage> createState() => _AttendancePageState();
 }
@@ -454,11 +461,107 @@ class AttendancePage extends StatefulWidget {
 class _AttendancePageState extends State<AttendancePage> {
   bool _checkedIn = false;
   DateTime? _time;
+  bool _loading = false;
+
+  static const String _baseUrl = "http://31.97.158.157/api/v1"; // عدّلها
+
+  String? _lastServerMessage;
+  Map<String, dynamic>? _lastData;
+
+  Future<String?> _getToken() async {
+    return await getAuthHeader();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _ensureLoggedIn();
+  }
+
+  Future<void> _ensureLoggedIn() async {
+    final token = await _getToken();
+    if (!mounted) return;
+    if (token == null || token.isEmpty) {
+      // روح لصفحة تسجيل الدخول
+      Navigator.of(context).pushReplacementNamed('/login');
+    }
+  }
+
+  Future<void> _handleAction(String action) async {
+    final messenger = ScaffoldMessenger.of(context);
+
+    final token = await _getToken();
+    if (token == null || token.isEmpty) {
+      messenger.showSnackBar(const SnackBar(content: Text("لا يوجد توكن مصادقة. سجّل الدخول أولاً.")));
+      return;
+    }
+
+    setState(() => _loading = true);
+    try {
+      // 1) إذن الموقع + أفضل قراءة
+      await requestLocationPermissionsOrThrow();
+      final pos = await getBestFix();
+
+      // 2) حلّ الموقع من الخادم حسب الموظف المسجّل
+      final r = await resolveMyLocation(
+        baseUrl: _baseUrl,
+        token: token,
+        lat: pos.latitude,
+        lng: pos.longitude,
+        accuracy: pos.accuracy,
+      );
+
+      if (!r.ok || r.data == null || r.data!["location_id"] == null) {
+        messenger.showSnackBar(SnackBar(content: Text(r.message)));
+        return;
+      }
+
+      final String locationId = r.data!["location_id"].toString();     // ✅ UUID
+
+      final double radius = asDouble(r.data!["radius"]) ?? 50.0;       // ✅
+      final double siteLat = asDouble(r.data!["lat"]) ?? 0.0;          // ✅
+      final double siteLng = asDouble(r.data!["lng"]) ?? 0.0;          // ✅
+
+
+      // (اختياري) تحقق محلي سريع
+      final dist = Geolocator.distanceBetween(pos.latitude, pos.longitude, siteLat, siteLng);
+      if (dist > radius) {
+        messenger.showSnackBar(SnackBar(content: Text("خارج النطاق (${radius.toInt()}م). المسافة: ${dist.toStringAsFixed(1)}م")));
+        return;
+      }
+
+      // 3) أرسل الحضور/الانصراف لنفس الموقع المحسوم
+      final res = await sendAttendanceWithPosition(
+        baseUrl: _baseUrl,
+        token: token,
+        locationId: locationId,
+        action: action, // "check_in" | "check_out"
+        pos: pos,
+      );
+
+      _lastServerMessage = res.message;
+      _lastData = res.data;
+
+      if (res.ok) {
+        setState(() {
+          _checkedIn = (action == "check_in");
+          _time = DateTime.now();
+        });
+        messenger.showSnackBar(SnackBar(content: Text(res.message)));
+      } else {
+        messenger.showSnackBar(SnackBar(content: Text(res.message)));
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text("خطأ: $e")));
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
+    final timeStr = _time == null ? null : DateFormat.Hm().format(_time!);
 
     return ListView(
       padding: const EdgeInsets.all(16),
@@ -471,12 +574,10 @@ class _AttendancePageState extends State<AttendancePage> {
                 Icon(_checkedIn ? Icons.login : Icons.logout, size: 36, color: cs.primary),
                 const SizedBox(width: 16),
                 Expanded(
-                  child: Text(
-                    _checkedIn ? t.checked_in : t.checked_out,
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
+                  child: Text(_checkedIn ? "تم تسجيل الحضور" : "تم تسجيل الانصراف",
+                      style: Theme.of(context).textTheme.titleLarge),
                 ),
-                if (_time != null) Text(TimeOfDay.fromDateTime(_time!).format(context)),
+                if (timeStr != null) Text(timeStr),
               ],
             ),
           ),
@@ -487,34 +588,56 @@ class _AttendancePageState extends State<AttendancePage> {
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.login),
-                label: Text(t.check_in),
-                onPressed: _checkedIn ? null : () => setState(() { _checkedIn = true; _time = DateTime.now(); }),
+                label: const Text("تسجيل الحضور"),
+                onPressed: (_checkedIn || _loading) ? null : () => _handleAction("check_in"),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.logout),
-                label: Text(t.check_out),
-                onPressed: !_checkedIn ? null : () => setState(() { _checkedIn = false; _time = DateTime.now(); }),
+                label: const Text("تسجيل الانصراف"),
+                onPressed: (!_checkedIn || _loading) ? null : () => _handleAction("check_out"),
               ),
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.history),
-            title: Text(t.attendance_history),
-            subtitle: Text(t.attendance_history_hint),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.coming_soon)));
-            },
+        if (_loading) ...[
+          const SizedBox(height: 16),
+          const Center(child: CircularProgressIndicator()),
+        ],
+        if (_lastServerMessage != null || _lastData != null) ...[
+          const SizedBox(height: 16),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text("آخر نتيجة:", style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  if (_lastServerMessage != null) Text(_lastServerMessage!),
+                  if (_lastData != null) Text(_prettyData(_lastData!), style: const TextStyle(fontFamily: 'monospace')),
+                ],
+              ),
+            ),
           ),
-        ),
+        ],
       ],
     );
+  }
+
+  String _prettyData(Map<String, dynamic> map) {
+    final recId = map['record_id'];
+    final employee = map['employee'];
+    final location = map['location'];
+    final detail = map['detail'];
+    return [
+      if (detail != null) "الرسالة: $detail",
+      if (recId != null) "رقم السجل: $recId",
+      if (employee != null) "الموظف: $employee",
+      if (location != null) "الموقع: $location",
+    ].join("\n");
   }
 }
 

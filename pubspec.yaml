@@ -38,6 +38,8 @@ dependencies:
   shared_preferences:
   provider:
   http:
+  intl:
+  geolocator:
   flutter_localizations:
       sdk: flutter
 

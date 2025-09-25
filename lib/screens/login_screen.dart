@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api.dart';
+import '../services/auth.dart';
 import 'forgot_password_screen.dart';
 import 'home_guard.dart';
 
@@ -20,25 +21,64 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() { _u.dispose(); _p.dispose(); super.dispose(); }
 
+
   Future<void> _submit() async {
     if (!_form.currentState!.validate()) return;
     setState(() => _loading = true);
-    final r = await ApiService.guardLogin(_u.text.trim(), _p.text);
+
+    // ⚠️ baseUrl = الجذر فقط (بدون /api/v1/)
+    const base = "http://31.97.158.157/api/v1";
+
+    // 1) دخول + حفظ التوكن
+    final loginRes = await loginAndStoreToken(
+      baseUrl: base,
+      username: _u.text.trim(),
+      password: _p.text,
+    );
+
+    if (!mounted) return;
+
+    if (!loginRes.ok) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(loginRes.message)),
+      );
+      return;
+    }
+
+    // 2) اقرأ الهيدر المخزَّن "Bearer <access>"
+    final token = await getAuthHeader();
+    if (token == null || token.isEmpty) {
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("تعذّر قراءة التوكن بعد تسجيل الدخول.")),
+      );
+      return;
+    }
+
+    // 3) نداءك الثاني: إرسال بيانات إضافية/جلب بروفايل مع التوكن
+    final r = await ApiService.guardLoginWithToken(
+      baseUrl: base,   // هنا يمكنك إضافة /api/v1/ داخل الدالة نفسها
+      authHeader: token,
+      // مثلاً: deviceId/appVersion إن احتجت
+      // deviceId: await _readDeviceId(),
+      // appVersion: '1.0.0',
+    );
+
     setState(() => _loading = false);
     if (!mounted) return;
 
     if (r['ok'] == true) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(AppLocalizations.of(context)!.login)),
+        const SnackBar(content: Text("تم تسجيل الدخول")),
       );
-      Navigator.of(context).pushReplacementNamed(HomeGuard.route);
+      Navigator.of(context).pushReplacementNamed('/home'); // أو HomeGuard.route
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(r['message'] ?? 'Error')),
+        SnackBar(content: Text(r['message'] ?? 'خطأ غير معروف')),
       );
     }
   }
-
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;

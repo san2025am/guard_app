@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'package:geolocator/geolocator.dart';
+
 // lib/services/api.dart
 import 'dart:convert';
 import 'package:flutter/cupertino.dart';
@@ -5,6 +8,26 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/employee.dart';
+typedef ApiResult = ({bool ok, String message, Map<String, dynamic>? data});
+
+String authHeader(String tokenOrHeader) {
+  final t = tokenOrHeader.trim();
+  if (t.startsWith('Bearer ') || t.startsWith('Token ')) return t; // جاهز
+  return 'Bearer $t'; // أضف البادئة إذا كان خام
+}
+double? asDouble(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toDouble();
+  if (v is String) return double.tryParse(v.trim());
+  return null;
+}
+
+int? asInt(dynamic v) {
+  if (v == null) return null;
+  if (v is num) return v.toInt();
+  if (v is String) return int.tryParse(v.trim());
+  return null;
+}
 
 /// عدّل هذا العنوان ليناسب بيئتك (IP أو دومين السيرفر)
 const String kBaseUrl = "http://31.97.158.157/api/v1";
@@ -16,13 +39,60 @@ class ApiService {
 
   static Map<String, String> _jsonHeaders({String? token}) => {
     'Content-Type': 'application/json',
-    if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+    if (token != null && token.isNotEmpty) 'Authorization': '$token',
   };
 
   // ----------------------------------------------------------------
   // تسجيل دخول الحارس → يخزن التوكنات وبيانات المستخدم/الموظف
   // ----------------------------------------------------------------
+  static Future<Map<String, dynamic>> guardLoginWithToken({
+    required String baseUrl,          // مثال: http://31.97.158.157
+    required String authHeader,       // "Bearer <access>"
+    String? deviceId,
+    String? appVersion,
+  }) async {
+    // اكتب هنا المسار الصحيح عندك:
+    // إذا كان عندك بادئة /api/v1/ فضعها هنا داخل الدالة
+    final uri = Uri.parse("$baseUrl/auth/guard/login/"); // عدّله لمسارك الفعلي
 
+    try {
+      final res = await http.post(
+        uri,
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json",
+          "Authorization": authHeader, // ← الأهم
+        },
+        body: jsonEncode({
+          if (deviceId != null) "device_id": deviceId,
+          if (appVersion != null) "app_version": appVersion,
+          // ضع أي حقول أخرى مطلوبة للسيرفر
+        }),
+      );
+
+      final body = utf8.decode(res.bodyBytes);
+      Map<String, dynamic>? data;
+      final ct = (res.headers['content-type'] ?? '').toLowerCase();
+      if (ct.contains('application/json')) {
+        try { data = jsonDecode(body) as Map<String, dynamic>; } catch (_) {}
+      }
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        return {"ok": true, "message": data?['detail'] ?? "تم", "data": data};
+      }
+
+      // رسالة أوضح عند HTML/404
+      if (data == null) {
+        return {
+          "ok": false,
+          "message": "الخادم أعاد محتوى غير JSON (status ${res.statusCode}). ${res.request?.url}",
+        };
+      }
+      return {"ok": false, "message": data['detail'] ?? "فشل (status ${res.statusCode})", "data": data};
+    } catch (e) {
+      return {"ok": false, "message": e.toString()};
+    }
+  }
   static Future<Map<String, dynamic>> guardLogin(
       String username,
       String password,
@@ -266,5 +336,166 @@ class ApiService {
     } catch (_) {
       return {'detail': r.body};
     }
+  }
+}
+
+Future<Position> getBestFix({
+  Duration window = const Duration(seconds: 8),
+  LocationAccuracy accuracy = LocationAccuracy.best,
+}) async {
+  final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  if (!serviceEnabled) {
+    throw Exception("خدمة الموقع غير مفعّلة. فعّل GPS وحاول مجددًا.");
+  }
+  LocationPermission perm = await Geolocator.checkPermission();
+  if (perm == LocationPermission.denied) {
+    perm = await Geolocator.requestPermission();
+  }
+  if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+    throw Exception("تم رفض صلاحية الوصول للموقع. الرجاء منح الإذن.");
+  }
+  final end = DateTime.now().add(window);
+  Position? best;
+  while (DateTime.now().isBefore(end)) {
+    final pos = await Geolocator.getCurrentPosition(desiredAccuracy: accuracy);
+    if (best == null || pos.accuracy < best.accuracy) {
+      best = pos;
+    }
+    if (best!.accuracy <= 15) break;
+    await Future.delayed(const Duration(milliseconds: 800));
+  }
+  if (best == null) {
+    throw Exception("تعذّر الحصول على إحداثيات.");
+  }
+  return best!;
+}
+
+Future<ApiResult> sendAttendance({
+  required String baseUrl,
+  required String token,
+  required String locationId,
+  required String action,
+  Duration window = const Duration(seconds: 8),
+}) async {
+  try {
+    final pos = await getBestFix(window: window);
+    final body = {
+      "location_id": locationId,
+      "action": action,
+      "lat": pos.latitude,
+      "lng": pos.longitude,
+      "accuracy": pos.accuracy,
+    };
+    final uri = Uri.parse("$baseUrl/attendance/check/");
+    final res = await http.post(
+      uri,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": authHeader(token), // بدل: "Bearer $token"
+      },
+
+      body: jsonEncode(body),
+    );
+
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final Map<String, dynamic>? data =
+    decoded is Map<String, dynamic> ? decoded : null;
+    final String msg = (data?["detail"]?.toString() ?? "تم بنجاح");
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return (ok: true, message: msg, data: data);
+    } else {
+      return (ok: false, message: (data?["detail"]?.toString() ?? "فشل الطلب"), data: data);
+    }
+  } catch (e) {
+    return (ok: false, message: e.toString(), data: null);
+  }
+}
+
+/// طلب/تأكيد صلاحيات الموقع
+Future<void> requestLocationPermissionsOrThrow() async {
+  final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+  if (!serviceEnabled) {
+    throw Exception("خدمة الموقع غير مفعّلة. فعّل الـ GPS ثم حاول مرة أخرى.");
+  }
+  var perm = await Geolocator.checkPermission();
+  if (perm == LocationPermission.denied) {
+    perm = await Geolocator.requestPermission();
+  }
+  if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+    throw Exception("تم رفض إذن الوصول للموقع. الرجاء منح الإذن من الإعدادات.");
+  }
+}
+
+/// إرسال بنفس Position الملتقط
+Future<ApiResult> sendAttendanceWithPosition({
+  required String baseUrl,
+  required String token,
+  required String locationId,
+  required String action, // "check_in" أو "check_out"
+  required Position pos,
+}) async {
+  try {
+    final body = {
+      "location_id": locationId,
+      "action": action,
+      "lat": pos.latitude,
+      "lng": pos.longitude,
+      "accuracy": pos.accuracy,
+    };
+
+    final uri = Uri.parse("$baseUrl/attendance/check/");
+    final res = await http.post(
+      uri,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": authHeader(token), // بدل: "Bearer $token"
+      },
+
+      body: jsonEncode(body),
+    );
+
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final Map<String, dynamic>? data =
+    decoded is Map<String, dynamic> ? decoded : null;
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return (ok: true, message: (data?["detail"]?.toString() ?? "تم بنجاح"), data: data);
+    } else {
+      return (ok: false, message: (data?["detail"]?.toString() ?? "فشل الطلب"), data: data);
+    }
+  } catch (e) {
+    return (ok: false, message: e.toString(), data: null);
+  }
+}
+
+Future<ApiResult> resolveMyLocation({
+  required String baseUrl,
+  required String token,
+  required double lat,
+  required double lng,
+  required double accuracy,
+}) async {
+  try {
+    final uri = Uri.parse("$baseUrl/attendance/resolve-location/");
+    final res = await http.post(
+      uri,
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": authHeader(token), // بدل: "Bearer $token"
+      },
+
+      body: jsonEncode({"lat": lat, "lng": lng, "accuracy": accuracy}),
+    );
+    final decoded = jsonDecode(utf8.decode(res.bodyBytes));
+    final Map<String, dynamic>? data = decoded is Map<String, dynamic> ? decoded : null;
+
+    if (res.statusCode >= 200 && res.statusCode < 300) {
+      return (ok: true, message: data?["detail"]?.toString() ?? "تم", data: data);
+    } else {
+      return (ok: false, message: data?["detail"]?.toString() ?? "فشل", data: data);
+    }
+  } catch (e) {
+    return (ok: false, message: e.toString(), data: null);
   }
 }

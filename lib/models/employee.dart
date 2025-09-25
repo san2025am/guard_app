@@ -19,6 +19,64 @@ class LocationMini {
     instructions: (j['instructions'] ?? j['locationInstructions'])?.toString(),
   );
 }
+// ------- TaskMini -------
+class TaskMini {
+  final int id;
+  final String title;
+  final String description;
+  final String status;
+  final String? dueDate;
+  final String locationName;
+
+  TaskMini({
+    required this.id,
+    required this.title,
+    required this.description,
+    required this.status,
+    this.dueDate,
+    required this.locationName,
+  });
+
+  factory TaskMini.fromJson(Map<String, dynamic> j) => TaskMini(
+    id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
+    title: (j['title'] ?? '').toString(),
+    description: (j['description'] ?? '').toString(),
+    status: (j['status'] ?? '').toString(),
+    dueDate: j['due_date']?.toString(),
+    locationName: (j['location_name'] ?? '').toString(),
+  );
+}
+
+// ------- ShiftMini -------
+class ShiftMini {
+  final int id;
+  final String date;
+  final String shiftName;
+  final String startTime;
+  final String endTime;
+  final bool active;
+  final String? notes;
+
+  ShiftMini({
+    required this.id,
+    required this.date,
+    required this.shiftName,
+    required this.startTime,
+    required this.endTime,
+    required this.active,
+    this.notes,
+  });
+
+  factory ShiftMini.fromJson(Map<String, dynamic> j) => ShiftMini(
+    id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
+    date: (j['date'] ?? '').toString(),
+    shiftName: (j['shift_name'] ?? '').toString(),
+    startTime: (j['start_time'] ?? '').toString(),
+    endTime: (j['end_time'] ?? '').toString(),
+    active: j['active'] == true || j['active']?.toString() == "true",
+    notes: j['notes']?.toString(),
+  );
+}
 
 // ------- SalaryMini -------
 class SalaryMini {
@@ -71,7 +129,8 @@ class EmployeeMe {
 
   final List<LocationMini> locations;
   final SalaryMini salary;
-
+  final List<TaskMini> tasks;
+  final List<ShiftMini> shifts;
   EmployeeMe({
     required this.id,
     required this.username,
@@ -92,6 +151,8 @@ class EmployeeMe {
     this.supervisorPhone,
     required this.locations,
     required this.salary,
+    this.tasks = const [],
+    this.shifts = const [],
   });
 
   factory EmployeeMe.fromJson(Map<String, dynamic> j) {
@@ -120,7 +181,15 @@ class EmployeeMe {
         .where((s) => s.trim().isNotEmpty)
         .toList()
         : <String>[];
+    // المهام
+    final taskList = (j['tasks'] as List? ?? [])
+        .map((e) => TaskMini.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
 
+    // الورديات
+    final shiftList = (j['shifts'] as List? ?? [])
+        .map((e) => ShiftMini.fromJson(Map<String, dynamic>.from(e)))
+        .toList();
     return EmployeeMe(
       id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
       username: (j['username'] ?? '').toString(),
@@ -137,7 +206,7 @@ class EmployeeMe {
       // الحقول الجديدة (تاريخ/تعليمات/مشرف)
       idExpiryDate: j['id_expiry_date']?.toString(),
       dateOfBirthGregorian: j['date_of_birth_gregorian']?.toString(),
-      employeeInstructions: (j['employee_instructions'] ?? j['employeeInstructions'])?.toString(),
+      employeeInstructions: (j['employee_instructions'] ?? j['instructions'])?.toString(),
       locationInstructions: locInstr,
       supervisorName: (j['supervisor_name'] ?? j['supervisorName'])?.toString(),
       supervisorPhone: (j['supervisor_phone'] ?? j['supervisorPhone'])?.toString(),
@@ -145,7 +214,10 @@ class EmployeeMe {
       locations: locList,
       salary: SalaryMini.fromJson(
         (j['salary'] is Map) ? Map<String, dynamic>.from(j['salary']) : null,
+
       ),
+      tasks: taskList,
+      shifts: shiftList,
     );
   }
 }
