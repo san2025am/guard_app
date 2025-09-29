@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
@@ -9,8 +11,6 @@ import '../services/api.dart';  // لو عندك AppSettings (الثيم/الل�
 
 import 'package:intl/intl.dart';
 import 'package:geolocator/geolocator.dart';
-
-import '../services/auth.dart' show getAuthHeader, logout; // عدّل المسار
 
 
 
@@ -158,6 +158,7 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+
           // ===== بطاقة الرأس =====
           Card(
             child: Padding(
@@ -463,96 +464,271 @@ class _AttendancePageState extends State<AttendancePage> {
   DateTime? _time;
   bool _loading = false;
 
-  static const String _baseUrl = "http://31.97.158.157/api/v1"; // عدّلها
-
+  String? _locationId;      // UUID نص
+  String? _locationName;    // اسم الموقع
   String? _lastServerMessage;
   Map<String, dynamic>? _lastData;
 
-  Future<String?> _getToken() async {
-    return await getAuthHeader();
-  }
+  // جديد: عرض حالة “غير مقيّدة” + تلميح نصي
+  bool _unrestricted = false;
+  String? _shiftHint; // نص موجز عن النافذة/السماحات لعرضه تحت الأزرار
 
   @override
   void initState() {
     super.initState();
-    _ensureLoggedIn();
+    _bootstrap();
   }
 
-  Future<void> _ensureLoggedIn() async {
-    final token = await _getToken();
+  Future<void> _bootstrap() async {
+    final token = await ApiService.getAccessToken();
     if (!mounted) return;
     if (token == null || token.isEmpty) {
-      // روح لصفحة تسجيل الدخول
+      if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/login');
+      return;
+    }
+
+    await _checkCurrentAttendanceStatus();
+
+    // جرّب الاستفادة من الكاش لتحديد الموقع وقراءة حالة الوردية/السماحات
+    final emp = await ApiService.ensureEmployeeCached();
+    if (emp != null && emp.locations != null && emp.locations!.isNotEmpty) {
+      setState(() {
+        _locationId = emp.locations!.first.id?.toString();
+        _locationName = emp.locations!.first.name;
+      });
+      // قراءة السماحات من الكاش (employee_json) إن كانت متوفرة
+      await _loadUnrestrictedFromCache();
+      // تعزيز التحديد من الخادم
+      try {
+        final pos = await getBestFix();
+        final r = await resolveMyLocation(
+          baseUrl: kBaseUrl,
+          token: token,
+          lat: pos.latitude,
+          lng: pos.longitude,
+          accuracy: pos.accuracy,
+        );
+        if (r.ok && r.data?['location_id'] != null) {
+          setState(() {
+            _locationId = r.data!['location_id'];
+            _locationName = (r.data!['name'] ?? _locationName)?.toString();
+          });
+        }
+      } catch (_) {}
+    } else {
+      // تحديد تلقائي عبر الإحداثيات
+      try {
+        final pos = await getBestFix();
+        final r = await resolveMyLocation(
+          baseUrl: kBaseUrl,
+          token: token,
+          lat: pos.latitude,
+          lng: pos.longitude,
+          accuracy: pos.accuracy,
+        );
+        if (r.ok && r.data?['location_id'] != null) {
+          setState(() {
+            _locationId = r.data!['location_id']; // UUID
+            _locationName = r.data!['name'];
+          });
+        } else {
+          _showSnackBar('لم يتم تحديد موقع العمل تلقائيًا: ${r.message}');
+        }
+      } catch (e) {
+        _showSnackBar('خطأ في تحديد الموقع: $e');
+      }
+      // حتى لو لم نحدد الموقع، حاول قراءة حالة الوردية من الكاش
+      await _loadUnrestrictedFromCache();
+    }
+  }
+
+  Future<void> _loadUnrestrictedFromCache() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      final txt = sp.getString('employee_json');
+      if (txt == null || txt.isEmpty) {
+        setState(() { _unrestricted = false; _shiftHint = null; });
+        return;
+      }
+      final Map<String, dynamic> j = jsonDecode(txt);
+      final assigns = (j['shift_assignments'] is List) ? (j['shift_assignments'] as List) : const [];
+      bool anyUn = false;
+      String? hint;
+      for (final x in assigns) {
+        if (x is! Map) continue;
+        final m = Map<String, dynamic>.from(x as Map);
+        final active = m['active'] == true;
+        if (!active) continue;
+
+        final un = m['unrestricted'] == true;
+        if (un) {
+          anyUn = true;
+          hint = 'الوردية غير مقيّدة — يُسمح بالحضور والانصراف في أي وقت.';
+          break;
+        }
+
+        // إن لم تكن غير مقيّدة: ابنِ تلميحًا موجزًا بالبيانات المتاحة
+        final st = (m['start_time'] ?? '').toString();
+        final et = (m['end_time'] ?? '').toString();
+        final cgi = int.tryParse(m['checkin_grace']?.toString() ?? '');
+        final cgo = int.tryParse(m['checkout_grace']?.toString() ?? '');
+        final cgh = double.tryParse(m['checkout_grace_hours']?.toString() ?? '');
+        final exitText = (cgh != null && cgh > 0)
+            ? 'سماح الانصراف: ${_fmtHour(cgh)}'
+            : (cgo != null && cgo > 0 ? 'سماح الانصراف: $cgo دقيقة' : 'بدون سماح انصراف');
+        final inText = (cgi != null && cgi > 0) ? 'سماح الحضور: $cgi دقيقة' : 'بدون سماح حضور';
+        hint = 'الوردية: ${st.isEmpty ? '-' : st} → ${et.isEmpty ? '-' : et} | $inText | $exitText';
+        // لا تكسر الحلقة — قد يكون هناك أكثر من تعيين، نكتفي بأول نشط
+        break;
+      }
+      setState(() {
+        _unrestricted = anyUn;
+        _shiftHint = hint;
+      });
+    } catch (_) {
+      // تجاهل أي خطأ في قراءة الكاش
+      setState(() { _unrestricted = false; _shiftHint = null; });
+    }
+  }
+
+  String _fmtHour(double h) {
+    // 1.0 => "1 ساعة" ، 1.5 => "1.5 ساعة"
+    final isInt = h == h.truncateToDouble();
+    return isInt ? '${h.toInt()} ساعة' : '${h.toStringAsFixed(1)} ساعة';
+  }
+
+  Future<void> _checkCurrentAttendanceStatus() async {
+    // لا يوجد endpoint بعد — نفترض لا يوجد سجل مفتوح
+    setState(() {
+      _checkedIn = false;
+      _time = null;
+    });
+  }
+
+  void _showSnackBar(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  bool _looksLikeUuid(String? s) {
+    if (s == null) return false;
+    final re = RegExp(r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-5][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$');
+    return re.hasMatch(s);
+  }
+
+  String _fmtIsoDateTimeLocal(dynamic v) {
+    if (v == null) return '-';
+    try {
+      final dt = DateTime.parse(v.toString()).toLocal();
+      return DateFormat('yyyy-MM-dd HH:mm').format(dt);
+    } catch (_) {
+      return v.toString();
     }
   }
 
   Future<void> _handleAction(String action) async {
-    final messenger = ScaffoldMessenger.of(context);
-
-    final token = await _getToken();
+    final token = await ApiService.getAccessToken();
     if (token == null || token.isEmpty) {
-      messenger.showSnackBar(const SnackBar(content: Text("لا يوجد توكن مصادقة. سجّل الدخول أولاً.")));
+      _showSnackBar('لا يوجد توكن. سجّل الدخول أولاً.');
+      if (!mounted) return;
+      Navigator.of(context).pushReplacementNamed('/login');
       return;
+    }
+
+    if (_locationId == null) {
+      _showSnackBar('لم يتم تحديد موقع العمل. يرجى التأكد من صلاحيات الموقع أو تحديث الصفحة.');
+      return;
+    }
+
+    // تأكيد UUID — وإن لم يكن، حاول استنتاجه من الإحداثيات
+    String? effectiveLocationId = _locationId;
+    if (!_looksLikeUuid(effectiveLocationId)) {
+      try {
+        final posFix = await getBestFix();
+        final r = await resolveMyLocation(
+          baseUrl: kBaseUrl,
+          token: token,
+          lat: posFix.latitude,
+          lng: posFix.longitude,
+          accuracy: posFix.accuracy,
+        );
+        if (r.ok && r.data?['location_id'] is String) {
+          effectiveLocationId = r.data!['location_id'] as String;
+          setState(() {
+            _locationId = effectiveLocationId;
+            _locationName = r.data!['name']?.toString() ?? _locationName;
+          });
+        } else {
+          _showSnackBar('لا يمكن تحديد موقع العمل تلقائيًا. اقترب من الموقع أو أعد المحاولة.');
+          return;
+        }
+      } catch (_) {
+        _showSnackBar('تعذر تحديد موقع العمل تلقائيًا.');
+        return;
+      }
     }
 
     setState(() => _loading = true);
     try {
-      // 1) إذن الموقع + أفضل قراءة
-      await requestLocationPermissionsOrThrow();
       final pos = await getBestFix();
 
-      // 2) حلّ الموقع من الخادم حسب الموظف المسجّل
-      final r = await resolveMyLocation(
-        baseUrl: _baseUrl,
-        token: token,
-        lat: pos.latitude,
-        lng: pos.longitude,
-        accuracy: pos.accuracy,
-      );
-
-      if (!r.ok || r.data == null || r.data!["location_id"] == null) {
-        messenger.showSnackBar(SnackBar(content: Text(r.message)));
-        return;
-      }
-
-      final String locationId = r.data!["location_id"].toString();     // ✅ UUID
-
-      final double radius = asDouble(r.data!["radius"]) ?? 50.0;       // ✅
-      final double siteLat = asDouble(r.data!["lat"]) ?? 0.0;          // ✅
-      final double siteLng = asDouble(r.data!["lng"]) ?? 0.0;          // ✅
-
-
-      // (اختياري) تحقق محلي سريع
-      final dist = Geolocator.distanceBetween(pos.latitude, pos.longitude, siteLat, siteLng);
-      if (dist > radius) {
-        messenger.showSnackBar(SnackBar(content: Text("خارج النطاق (${radius.toInt()}م). المسافة: ${dist.toStringAsFixed(1)}م")));
-        return;
-      }
-
-      // 3) أرسل الحضور/الانصراف لنفس الموقع المحسوم
       final res = await sendAttendanceWithPosition(
-        baseUrl: _baseUrl,
+        baseUrl: kBaseUrl,
         token: token,
-        locationId: locationId,
-        action: action, // "check_in" | "check_out"
+        locationId: effectiveLocationId!,
+        action: action,    // "check_in" أو "check_out"
         pos: pos,
       );
 
-      _lastServerMessage = res.message;
-      _lastData = res.data;
-
+      final msg = res.message;
       if (res.ok) {
+        final data = res.data ?? {};
+        final note = (data['note'] ?? '').toString();
+        final unrestricted = data['unrestricted'] == true;
+
         setState(() {
-          _checkedIn = (action == "check_in");
+          _checkedIn = (action == 'check_in');
           _time = DateTime.now();
+          _lastServerMessage = note.isNotEmpty ? note : msg;
+          _lastData = data;
+          // حدّث الحالة العلوية أيضًا (بانر غير مقيّد) إن وُجدت من الخادم
+          _unrestricted = unrestricted;
         });
-        messenger.showSnackBar(SnackBar(content: Text(res.message)));
+
+        if (unrestricted) {
+          _showSnackBar(note.isNotEmpty
+              ? note
+              : 'تمت العملية بنجاح — الوردية غير مقيّدة زمنيًا.');
+        } else {
+          // إن كانت نافذة محددة، حاول عرضها للمستخدم
+          final sws = data['shift_window_start'];
+          final swe = data['shift_window_end'];
+          final win = (sws != null || swe != null)
+              ? 'نافذة الوردية: ${_fmtIsoDateTimeLocal(sws)} → ${_fmtIsoDateTimeLocal(swe)}'
+              : '';
+          final base = note.isNotEmpty ? note : 'تمت العملية بنجاح ضمن نافذة الوردية.';
+          _showSnackBar(win.isEmpty ? base : '$base\n$win');
+        }
       } else {
-        messenger.showSnackBar(SnackBar(content: Text(res.message)));
+        // خطأ — اعرض رسالة عربية مفهومة + أي ملاحظات من الخادم
+        String nice = msg;
+        final d = res.data;
+        if (d is Map<String, dynamic>) {
+          final note = (d['note'] ?? '').toString();
+          if (d['detail'] is String) {
+            nice = d['detail'];
+            if (note.isNotEmpty) {
+              nice = '$note\n$nice';
+            }
+          } else if (d['non_field_errors'] is List && d['non_field_errors'].isNotEmpty) {
+            nice = d['non_field_errors'].join('، ');
+          }
+        }
+        _showSnackBar(nice.isEmpty ? 'فشل الإرسال.' : nice);
       }
     } catch (e) {
-      messenger.showSnackBar(SnackBar(content: Text("خطأ: $e")));
+      _showSnackBar('خطأ: $e');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -566,30 +742,65 @@ class _AttendancePageState extends State<AttendancePage> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        // بانر توضيحي عند الوردية غير المقيّدة
+        if (_unrestricted)
+          MaterialBanner(
+            content: const Text(
+              'تنبيه: ورديتك الحالية غير مقيّدة زمنيًا — يُسمح بالحضور والانصراف في أي وقت.',
+            ),
+            actions: [
+              TextButton(onPressed: () {}, child: const Text('حسناً')),
+            ],
+          ),
+
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Icon(_checkedIn ? Icons.login : Icons.logout, size: 36, color: cs.primary),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Text(_checkedIn ? "تم تسجيل الحضور" : "تم تسجيل الانصراف",
-                      style: Theme.of(context).textTheme.titleLarge),
+                Row(
+                  children: [
+                    Icon(_checkedIn ? Icons.login : Icons.logout, size: 36, color: cs.primary),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Text(
+                        _checkedIn ? "تم تسجيل الحضور" : "تم تسجيل الانصراف",
+                        style: Theme.of(context).textTheme.titleLarge,
+                      ),
+                    ),
+                    if (timeStr != null) Text(timeStr),
+                  ],
                 ),
-                if (timeStr != null) Text(timeStr),
+                if (_locationName != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8.0),
+                    child: Text('الموقع: $_locationName', style: Theme.of(context).textTheme.titleSmall),
+                  ),
               ],
             ),
           ),
         ),
+
         const SizedBox(height: 12),
+
+        // تلميح نصي عن النافذة والسماحات (من الكاش إن وُجد)
+        if (_shiftHint != null && _shiftHint!.trim().isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8.0),
+            child: Text(
+              _shiftHint!,
+              style: const TextStyle(fontSize: 12),
+            ),
+          ),
+
         Row(
           children: [
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.login),
                 label: const Text("تسجيل الحضور"),
-                onPressed: (_checkedIn || _loading) ? null : () => _handleAction("check_in"),
+                onPressed: (_checkedIn || _loading || _locationId == null) ? null : () => _handleAction("check_in"),
               ),
             ),
             const SizedBox(width: 12),
@@ -597,15 +808,17 @@ class _AttendancePageState extends State<AttendancePage> {
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.logout),
                 label: const Text("تسجيل الانصراف"),
-                onPressed: (!_checkedIn || _loading) ? null : () => _handleAction("check_out"),
+                onPressed: (!_checkedIn || _loading || _locationId == null) ? null : () => _handleAction("check_out"),
               ),
             ),
           ],
         ),
+
         if (_loading) ...[
           const SizedBox(height: 16),
           const Center(child: CircularProgressIndicator()),
         ],
+
         if (_lastServerMessage != null || _lastData != null) ...[
           const SizedBox(height: 16),
           Card(
@@ -617,7 +830,10 @@ class _AttendancePageState extends State<AttendancePage> {
                   const Text("آخر نتيجة:", style: TextStyle(fontWeight: FontWeight.bold)),
                   const SizedBox(height: 8),
                   if (_lastServerMessage != null) Text(_lastServerMessage!),
-                  if (_lastData != null) Text(_prettyData(_lastData!), style: const TextStyle(fontFamily: 'monospace')),
+                  if (_lastData != null) ...[
+                    const SizedBox(height: 8),
+                    Text(_prettyData(_lastData!), style: const TextStyle(fontFamily: 'monospace')),
+                  ],
                 ],
               ),
             ),
@@ -632,15 +848,24 @@ class _AttendancePageState extends State<AttendancePage> {
     final employee = map['employee'];
     final location = map['location'];
     final detail = map['detail'];
-    return [
-      if (detail != null) "الرسالة: $detail",
-      if (recId != null) "رقم السجل: $recId",
-      if (employee != null) "الموظف: $employee",
-      if (location != null) "الموقع: $location",
-    ].join("\n");
+    final note = map['note'];
+    final un = map['unrestricted'] == true;
+    final sws = map['shift_window_start'];
+    final swe = map['shift_window_end'];
+
+    final parts = <String>[];
+    if (detail != null) parts.add("الرسالة: $detail");
+    if (note != null && note.toString().trim().isNotEmpty) parts.add("ملاحظة: $note");
+    if (recId != null) parts.add("رقم السجل: $recId");
+    if (employee != null) parts.add("الموظف: $employee");
+    if (location != null) parts.add("الموقع: $location");
+    parts.add("الوردية: ${un ? "غير مقيّدة" : "مقيّدة"}");
+    if (!un && (sws != null || swe != null)) {
+      parts.add("نافذة الوردية: ${_fmtIsoDateTimeLocal(sws)} → ${_fmtIsoDateTimeLocal(swe)}");
+    }
+    return parts.join("\n");
   }
 }
-
 /// تبويب 3: التقارير والطلبات (واجهة مبدئية)
 class ReportsRequestsPage extends StatelessWidget {
   const ReportsRequestsPage({super.key});
@@ -691,3 +916,4 @@ class ReportsRequestsPage extends StatelessWidget {
     );
   }
 }
+

@@ -77,6 +77,50 @@ class ShiftMini {
     notes: j['notes']?.toString(),
   );
 }
+class ShiftAssignMini {
+  final int id;
+  final String? date;            // ISO yyyy-MM-dd أو null (تكرار يومي)
+  final String shiftName;
+  final String locationName;
+  final String? startTime;       // "HH:MM" أو null
+  final String? endTime;
+  final int? checkinGrace;       // دقائق
+  final int? checkoutGrace;      // دقائق
+  final double? checkoutGraceHours; // ساعات (قد تكون 1.5)
+  final bool unrestricted;
+  final bool active;
+  final String? notes;
+
+  ShiftAssignMini({
+    required this.id,
+    required this.date,
+    required this.shiftName,
+    required this.locationName,
+    required this.startTime,
+    required this.endTime,
+    required this.checkinGrace,
+    required this.checkoutGrace,
+    required this.checkoutGraceHours,
+    required this.unrestricted,
+    required this.active,
+    required this.notes,
+  });
+
+  factory ShiftAssignMini.fromJson(Map<String, dynamic> j) => ShiftAssignMini(
+    id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
+    date: j['date']?.toString(),
+    shiftName: (j['shift_name'] ?? '').toString(),
+    locationName: (j['location_name'] ?? '').toString(),
+    startTime: j['start_time']?.toString(),
+    endTime: j['end_time']?.toString(),
+    checkinGrace: j['checkin_grace'] == null ? null : int.tryParse(j['checkin_grace'].toString()),
+    checkoutGrace: j['checkout_grace'] == null ? null : int.tryParse(j['checkout_grace'].toString()),
+    checkoutGraceHours: j['checkout_grace_hours'] == null ? null : double.tryParse(j['checkout_grace_hours'].toString()),
+    unrestricted: j['unrestricted'] == true,
+    active: j['active'] == true,
+    notes: j['notes']?.toString(),
+  );
+}
 
 // ------- SalaryMini -------
 class SalaryMini {
@@ -118,7 +162,7 @@ class EmployeeMe {
   final String? hireDate;   // ISO
   final String? bankName;
   final String? bankAccount;
-
+  final List<ShiftAssignMini> shiftAssignments;
   // جديد من الـ Serializer
   final String? idExpiryDate;
   final String? dateOfBirthGregorian;
@@ -153,6 +197,7 @@ class EmployeeMe {
     required this.salary,
     this.tasks = const [],
     this.shifts = const [],
+    required this.shiftAssignments
   });
 
   factory EmployeeMe.fromJson(Map<String, dynamic> j) {
@@ -190,6 +235,16 @@ class EmployeeMe {
     final shiftList = (j['shifts'] as List? ?? [])
         .map((e) => ShiftMini.fromJson(Map<String, dynamic>.from(e)))
         .toList();
+    final assigns = <ShiftAssignMini>[];
+    if (j['shift_assignments'] is List) {
+      for (final x in (j['shift_assignments'] as List)) {
+        if (x is Map<String, dynamic>) {
+          assigns.add(ShiftAssignMini.fromJson(x));
+        } else if (x is Map) {
+          assigns.add(ShiftAssignMini.fromJson(Map<String, dynamic>.from(x)));
+        }
+      }
+    }
     return EmployeeMe(
       id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
       username: (j['username'] ?? '').toString(),
@@ -218,6 +273,7 @@ class EmployeeMe {
       ),
       tasks: taskList,
       shifts: shiftList,
+      shiftAssignments: assigns,
     );
   }
 }

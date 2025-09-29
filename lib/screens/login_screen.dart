@@ -17,68 +17,52 @@ class _LoginScreenState extends State<LoginScreen> {
   final _u = TextEditingController();
   final _p = TextEditingController();
   bool _obscure = true, _loading = false;
-
+  final base='http://31.97.158.157/api/v1';
   @override
   void dispose() { _u.dispose(); _p.dispose(); super.dispose(); }
 
 
   Future<void> _submit() async {
-    if (!_form.currentState!.validate()) return;
+    final messenger = ScaffoldMessenger.of(context);
+
+    // أغلق الكيبورد
+    FocusScope.of(context).unfocus();
+
+    // تحقّق يدوي من القيم
+    final username = _u.text.trim();
+    final password = _p.text;
+
+    if (username.isEmpty || password.isEmpty) {
+      messenger.showSnackBar(
+        const SnackBar(content: Text("اسم المستخدم/كلمة المرور مطلوبة")),
+      );
+      return;
+    }
+
     setState(() => _loading = true);
+    try {
+      // 1) تسجيل الدخول (يحفظ التوكن الخام)
+      final login = await ApiService.guardLogin(username, password);
 
-    // ⚠️ baseUrl = الجذر فقط (بدون /api/v1/)
-    const base = "http://31.97.158.157/api/v1";
+      if (!mounted) return;
 
-    // 1) دخول + حفظ التوكن
-    final loginRes = await loginAndStoreToken(
-      baseUrl: base,
-      username: _u.text.trim(),
-      password: _p.text,
-    );
+      if (login['ok'] == true) {
+        // 2) ضمان وجود ملف الموظف في الكاش (سيجلب /auth/guard/me/ إن لم يكن محفوظًا)
+        await ApiService.ensureEmployeeCached();
 
-    if (!mounted) return;
-
-    if (!loginRes.ok) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(loginRes.message)),
-      );
-      return;
-    }
-
-    // 2) اقرأ الهيدر المخزَّن "Bearer <access>"
-    final token = await getAuthHeader();
-    if (token == null || token.isEmpty) {
-      setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("تعذّر قراءة التوكن بعد تسجيل الدخول.")),
-      );
-      return;
-    }
-
-    // 3) نداءك الثاني: إرسال بيانات إضافية/جلب بروفايل مع التوكن
-    final r = await ApiService.guardLoginWithToken(
-      baseUrl: base,   // هنا يمكنك إضافة /api/v1/ داخل الدالة نفسها
-      authHeader: token,
-      // مثلاً: deviceId/appVersion إن احتجت
-      // deviceId: await _readDeviceId(),
-      // appVersion: '1.0.0',
-    );
-
-    setState(() => _loading = false);
-    if (!mounted) return;
-
-    if (r['ok'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("تم تسجيل الدخول")),
-      );
-      Navigator.of(context).pushReplacementNamed('/home'); // أو HomeGuard.route
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(r['message'] ?? 'خطأ غير معروف')),
-      );
+        messenger.showSnackBar(const SnackBar(content: Text("تم تسجيل الدخول")));
+        Navigator.of(context).pushReplacementNamed('/home');
+      } else {
+        final msg = (login['message']?.toString() ?? 'فشل تسجيل الدخول');
+        messenger.showSnackBar(SnackBar(content: Text(msg)));
+      }
+    } catch (e) {
+      messenger.showSnackBar(SnackBar(content: Text("حدث خطأ: $e")));
+    } finally {
+      if (mounted) setState(() => _loading = false);
     }
   }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;

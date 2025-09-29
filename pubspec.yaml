@@ -39,6 +39,7 @@ dependencies:
   provider:
   http:
   intl:
+
   geolocator:
   flutter_localizations:
       sdk: flutter
