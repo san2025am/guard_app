@@ -104,18 +104,6 @@ abstract class AppLocalizations {
   /// **'Sanam Security'**
   String get app_title;
 
-  /// No description provided for @splash_tagline.
-  ///
-  /// In en, this message translates to:
-  /// **'A digital companion for security guards.'**
-  String get splash_tagline;
-
-  /// No description provided for @splash_loading.
-  ///
-  /// In en, this message translates to:
-  /// **'Preparing your workspace...'**
-  String get splash_loading;
-
   /// No description provided for @theme_light.
   ///
   /// In en, this message translates to:
@@ -152,18 +140,6 @@ abstract class AppLocalizations {
   /// **'English'**
   String get english;
 
-  /// No description provided for @language_settings_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Language settings'**
-  String get language_settings_title;
-
-  /// No description provided for @language_settings_hint.
-  ///
-  /// In en, this message translates to:
-  /// **'Choose the language you prefer to use in the app.'**
-  String get language_settings_hint;
-
   /// No description provided for @login.
   ///
   /// In en, this message translates to:
@@ -176,29 +152,11 @@ abstract class AppLocalizations {
   /// **'Username'**
   String get username;
 
-  /// No description provided for @email.
-  ///
-  /// In en, this message translates to:
-  /// **'Email'**
-  String get email;
-
   /// No description provided for @password.
   ///
   /// In en, this message translates to:
   /// **'Password'**
   String get password;
-
-  /// No description provided for @email_required.
-  ///
-  /// In en, this message translates to:
-  /// **'Please enter your email'**
-  String get email_required;
-
-  /// No description provided for @email_invalid.
-  ///
-  /// In en, this message translates to:
-  /// **'Enter a valid email address'**
-  String get email_invalid;
 
   /// No description provided for @forgot_password.
   ///
@@ -206,29 +164,11 @@ abstract class AppLocalizations {
   /// **'Forgot password?'**
   String get forgot_password;
 
-  /// No description provided for @forgot_via_username.
-  ///
-  /// In en, this message translates to:
-  /// **'Use username'**
-  String get forgot_via_username;
-
-  /// No description provided for @forgot_via_email.
-  ///
-  /// In en, this message translates to:
-  /// **'Use email'**
-  String get forgot_via_email;
-
   /// No description provided for @send_code.
   ///
   /// In en, this message translates to:
-  /// **'Send reset code'**
+  /// **'Send code to email'**
   String get send_code;
-
-  /// No description provided for @email_sent_success.
-  ///
-  /// In en, this message translates to:
-  /// **"We've sent a reset link to your email."**
-  String get email_sent_success;
 
   /// No description provided for @reset_password.
   ///

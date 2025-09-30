@@ -1,16 +1,15 @@
-import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../l10n/app_localizations.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 import '../app_settings.dart';
 import '../models/employee.dart';
 import '../services/api.dart';  // لو عندك AppSettings (الثيم/اللغة)
 
-import 'package:intl/intl.dart';
-import 'package:geolocator/geolocator.dart';
+
+
+import 'attendancepage.dart';
 
 
 
@@ -510,22 +509,10 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
 
 
 
-class AttendancePage extends StatefulWidget {
-  const AttendancePage({super.key});
-  @override
-  State<AttendancePage> createState() => _AttendancePageState();
-}
 
-class _AttendancePageState extends State<AttendancePage> {
-  bool _checkedIn = false;
-  DateTime? _time;
-  bool _loading = false;
 
-  String? _locationId;      // UUID نص
-  String? _locationName;    // اسم الموقع
-  String? _lastServerMessage;
-  Map<String, dynamic>? _lastData;
 
+<<<<<<< HEAD
   // جديد: عرض حالة “غير مقيّدة” + تلميح نصي
   bool _unrestricted = false;
   String? _shiftHint; // نص موجز عن النافذة/السماحات لعرضه تحت الأزرار
@@ -979,6 +966,8 @@ class _AttendancePageState extends State<AttendancePage> {
     return parts.join("\n");
   }
 }
+=======
+>>>>>>> a7f51d3 (تسجيل الحضور)
 /// تبويب 3: التقارير والطلبات (واجهة مبدئية)
 class ReportsRequestsPage extends StatelessWidget {
   const ReportsRequestsPage({super.key});
