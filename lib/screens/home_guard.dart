@@ -10,6 +10,7 @@ import '../services/api.dart';  // لو عندك AppSettings (الثيم/الل�
 
 
 import 'attendancepage.dart';
+import 'report_request_pages.dart';
 
 
 
@@ -474,8 +475,10 @@ class ReportsRequestsPage extends StatelessWidget {
             title: Text(t.create_report),
             subtitle: Text(t.create_report_hint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.coming_soon)));
+            onTap: () async {
+              await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (_) => const CreateReportScreen()),
+              );
             },
           ),
         ),
@@ -486,8 +489,10 @@ class ReportsRequestsPage extends StatelessWidget {
             title: Text(t.open_requests),
             subtitle: Text(t.open_requests_hint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.coming_soon)));
+            onTap: () async {
+              await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (_) => const OpenRequestsScreen()),
+              );
             },
           ),
         ),
@@ -495,11 +500,13 @@ class ReportsRequestsPage extends StatelessWidget {
         Card(
           child: ListTile(
             leading: const Icon(Icons.beenhere_outlined),
-            title: Text(t.request_leave),
-            subtitle: Text(t.request_leave_hint),
+            title: Text(t.create_request),
+            subtitle: Text(t.create_request_hint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(t.coming_soon)));
+            onTap: () async {
+              await Navigator.of(context).push<bool>(
+                MaterialPageRoute(builder: (_) => const CreateRequestScreen()),
+              );
             },
           ),
         ),
@@ -507,4 +514,3 @@ class ReportsRequestsPage extends StatelessWidget {
     );
   }
 }
-

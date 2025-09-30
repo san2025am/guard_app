@@ -290,6 +290,132 @@ abstract class AppLocalizations {
   /// **'Send a new report to supervisor'**
   String get create_report_hint;
 
+  /// No description provided for @report_subject.
+  ///
+  /// In en, this message translates to:
+  /// **'Subject'**
+  String get report_subject;
+
+  /// No description provided for @report_subject_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Subject is required'**
+  String get report_subject_required;
+
+  /// No description provided for @report_details.
+  ///
+  /// In en, this message translates to:
+  /// **'Details'**
+  String get report_details;
+
+  /// No description provided for @report_details_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Details are required'**
+  String get report_details_required;
+
+  /// No description provided for @report_type_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Report type'**
+  String get report_type_label;
+
+  /// No description provided for @report_type_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose the report type'**
+  String get report_type_required;
+
+  /// No description provided for @report_type_daily.
+  ///
+  /// In en, this message translates to:
+  /// **'Daily report'**
+  String get report_type_daily;
+
+  /// No description provided for @report_type_monthly.
+  ///
+  /// In en, this message translates to:
+  /// **'Monthly report'**
+  String get report_type_monthly;
+
+  /// No description provided for @report_type_security.
+  ///
+  /// In en, this message translates to:
+  /// **'Security incident'**
+  String get report_type_security;
+
+  /// No description provided for @report_type_complaint.
+  ///
+  /// In en, this message translates to:
+  /// **'Complaint'**
+  String get report_type_complaint;
+
+  /// No description provided for @report_add_attachment.
+  ///
+  /// In en, this message translates to:
+  /// **'Add attachment'**
+  String get report_add_attachment;
+
+  /// No description provided for @report_attachments.
+  ///
+  /// In en, this message translates to:
+  /// **'Attachments'**
+  String get report_attachments;
+
+  /// No description provided for @report_attachment_image_camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Capture photo'**
+  String get report_attachment_image_camera;
+
+  /// No description provided for @report_attachment_image_gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose photo from gallery'**
+  String get report_attachment_image_gallery;
+
+  /// No description provided for @report_attachment_video_camera.
+  ///
+  /// In en, this message translates to:
+  /// **'Record video'**
+  String get report_attachment_video_camera;
+
+  /// No description provided for @report_attachment_video_gallery.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose video from gallery'**
+  String get report_attachment_video_gallery;
+
+  /// No description provided for @report_attachment_remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get report_attachment_remove;
+
+  /// No description provided for @report_attachment_pick_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t pick attachment'**
+  String get report_attachment_pick_error;
+
+  /// No description provided for @submit_report.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit report'**
+  String get submit_report;
+
+  /// No description provided for @report_submit_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Report submitted successfully'**
+  String get report_submit_success;
+
+  /// No description provided for @report_submit_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not submit the report'**
+  String get report_submit_error;
+
   /// No description provided for @open_requests.
   ///
   /// In en, this message translates to:
@@ -302,17 +428,173 @@ abstract class AppLocalizations {
   /// **'View and track your requests'**
   String get open_requests_hint;
 
-  /// No description provided for @request_leave.
+  /// No description provided for @requests_empty_state.
   ///
   /// In en, this message translates to:
-  /// **'Request leave'**
-  String get request_leave;
+  /// **'No open requests yet.'**
+  String get requests_empty_state;
 
-  /// No description provided for @request_leave_hint.
+  /// No description provided for @requests_load_error.
   ///
   /// In en, this message translates to:
-  /// **'Submit a leave request'**
-  String get request_leave_hint;
+  /// **'Couldn\'t load requests'**
+  String get requests_load_error;
+
+  /// No description provided for @retry.
+  ///
+  /// In en, this message translates to:
+  /// **'Retry'**
+  String get retry;
+
+  /// No description provided for @request_type.
+  ///
+  /// In en, this message translates to:
+  /// **'Type'**
+  String get request_type;
+
+  /// No description provided for @request_status.
+  ///
+  /// In en, this message translates to:
+  /// **'Status'**
+  String get request_status;
+
+  /// No description provided for @request_submitted_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Submitted on'**
+  String get request_submitted_on;
+
+  /// No description provided for @create_request.
+  ///
+  /// In en, this message translates to:
+  /// **'Create request'**
+  String get create_request;
+
+  /// No description provided for @create_request_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Send a new request'**
+  String get create_request_hint;
+
+  /// No description provided for @request_type_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Please choose a request type'**
+  String get request_type_required;
+
+  /// No description provided for @request_type_coverage.
+  ///
+  /// In en, this message translates to:
+  /// **'Coverage'**
+  String get request_type_coverage;
+
+  /// No description provided for @request_type_leave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave'**
+  String get request_type_leave;
+
+  /// No description provided for @request_type_transfer.
+  ///
+  /// In en, this message translates to:
+  /// **'Transfer'**
+  String get request_type_transfer;
+
+  /// No description provided for @request_type_materials.
+  ///
+  /// In en, this message translates to:
+  /// **'Materials'**
+  String get request_type_materials;
+
+  /// No description provided for @request_description.
+  ///
+  /// In en, this message translates to:
+  /// **'Description'**
+  String get request_description;
+
+  /// No description provided for @request_description_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Description is required'**
+  String get request_description_required;
+
+  /// No description provided for @leave_start_datetime.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave start'**
+  String get leave_start_datetime;
+
+  /// No description provided for @leave_end_datetime.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave end'**
+  String get leave_end_datetime;
+
+  /// No description provided for @leave_start_not_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'No start selected'**
+  String get leave_start_not_selected;
+
+  /// No description provided for @leave_end_not_selected.
+  ///
+  /// In en, this message translates to:
+  /// **'No end selected'**
+  String get leave_end_not_selected;
+
+  /// No description provided for @leave_pick_dates_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Please select start and end for the leave'**
+  String get leave_pick_dates_required;
+
+  /// No description provided for @leave_end_must_follow_start.
+  ///
+  /// In en, this message translates to:
+  /// **'End must be after start'**
+  String get leave_end_must_follow_start;
+
+  /// No description provided for @leave_range.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave period'**
+  String get leave_range;
+
+  /// No description provided for @leave_hours_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave hours'**
+  String get leave_hours_label;
+
+  /// No description provided for @submit_request.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit request'**
+  String get submit_request;
+
+  /// No description provided for @request_submit_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Request submitted successfully'**
+  String get request_submit_success;
+
+  /// No description provided for @request_submit_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not submit the request'**
+  String get request_submit_error;
+
+  /// No description provided for @request_approval_notes.
+  ///
+  /// In en, this message translates to:
+  /// **'Decision notes'**
+  String get request_approval_notes;
+
+  /// No description provided for @request_approver.
+  ///
+  /// In en, this message translates to:
+  /// **'Handled by'**
+  String get request_approver;
 
   /// No description provided for @coming_soon.
   ///

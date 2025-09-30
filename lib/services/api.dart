@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // لو عندك موديل EmployeeMe جاهز:
@@ -27,6 +28,8 @@ const String _pForgotUsername  = '/auth/password/forgot/username/';
 const String _pResetBySession  = '/auth/password/reset/username/';
 const String _pResolveLocation = '/attendance/resolve-location/';
 const String _pAttendanceCheck = '/attendance/check/';
+const String _pGuardReports    = '/guards/reports/';
+const String _pGuardRequests   = '/guards/requests/';
 
 // ========================================================
 // مُساعِدات عامة
@@ -54,6 +57,70 @@ dynamic _decode(http.Response res) {
   final text = utf8.decode(res.bodyBytes);
   final obj  = _tryDecode(text);
   return obj ?? text; // قد يكون HTML/نص
+}
+
+String _messageFromBody(dynamic body, String fallback) {
+  if (body is Map) {
+    final map = body as Map;
+    for (final key in ['detail', 'message', 'error']) {
+      final value = map[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+
+    // إذا كان هناك قائمة أخطاء (مثل {'field': ['msg']})
+    for (final entry in map.entries) {
+      final v = entry.value;
+      if (v is List && v.isNotEmpty) {
+        final first = v.first;
+        if (first != null && first.toString().trim().isNotEmpty) {
+          return first.toString();
+        }
+      }
+      if (v is String && v.trim().isNotEmpty) {
+        return v;
+      }
+    }
+  } else if (body is List && body.isNotEmpty) {
+    final first = body.first;
+    if (first != null && first.toString().trim().isNotEmpty) {
+      return first.toString();
+    }
+  } else if (body is String) {
+    final trimmed = body.trim();
+    if (trimmed.isEmpty) return fallback;
+    final lower = trimmed.toLowerCase();
+    if (lower.startsWith('<!doctype') || lower.contains('<html')) {
+      return fallback;
+    }
+    return trimmed;
+  }
+  return fallback;
+}
+
+String _dateOnly(DateTime date) => date.toIso8601String().split('T').first;
+
+Map<String, dynamic> _stringMap(Map source) =>
+    source.map((key, value) => MapEntry(key.toString(), value));
+
+class ReportAttachmentUpload {
+  ReportAttachmentUpload({
+    required this.file,
+    this.contentType,
+  });
+
+  final File file;
+  final String? contentType;
+
+  MediaType? get mediaType {
+    if (contentType == null || contentType!.trim().isEmpty) return null;
+    try {
+      return MediaType.parse(contentType!);
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 String authHeader(String tokenOrHeader) {
@@ -330,6 +397,207 @@ class ApiService {
       return {'ok': false, 'message': (body is Map && body['detail'] != null) ? body['detail'].toString() : 'فشل التحقق من الرمز'};
     } catch (e) {
       return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
+    }
+  }
+
+  // ---------------------------------------------
+  // التقارير والطلبات
+  // ---------------------------------------------
+
+  static Future<ApiResult> submitGuardReport({
+    required String reportType,
+    required String description,
+    String? locationId,
+    List<ReportAttachmentUpload> attachments = const [],
+  }) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    try {
+      http.Response res;
+      final usableAttachments = attachments
+          .where((att) => att.file.existsSync())
+          .toList(growable: false);
+
+      if (usableAttachments.isEmpty) {
+        res = await _client
+            .post(
+              _u(_pGuardReports),
+              headers: {
+                ..._jsonHeaders(),
+                'Authorization': authHeader(token),
+              },
+              body: jsonEncode({
+                'report_type': reportType,
+                'description': description,
+                if (locationId != null && locationId.isNotEmpty) 'location': locationId,
+              }),
+            )
+            .timeout(const Duration(seconds: 20));
+      } else {
+        final req = http.MultipartRequest('POST', _u(_pGuardReports));
+        req.headers.addAll({
+          'Authorization': authHeader(token),
+          'Accept': 'application/json',
+        });
+        req.fields['report_type'] = reportType;
+        req.fields['description'] = description;
+        if (locationId != null && locationId.isNotEmpty) {
+          req.fields['location'] = locationId;
+        }
+        for (final att in usableAttachments) {
+          req.files.add(await http.MultipartFile.fromPath(
+            'attachments',
+            att.file.path,
+            contentType: att.mediaType,
+          ));
+        }
+        final streamed = await req.send().timeout(const Duration(seconds: 30));
+        res = await http.Response.fromStream(streamed);
+      }
+
+      final body = _decode(res);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = body is Map<String, dynamic>
+            ? Map<String, dynamic>.from(body)
+            : {'raw': body};
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة التقارير غير متاحة (404). الرجاء التأكد من تحديث خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر إرسال التقرير. تحقق من البيانات المدخلة.');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  static Future<ApiResult> submitGuardRequest({
+    required String requestType,
+    required String description,
+    DateTime? leaveStart,
+    DateTime? leaveEnd,
+  }) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    final payload = {
+      'request_type': requestType,
+      'description': description,
+      if (leaveStart != null) 'leave_start': leaveStart.toIso8601String(),
+      if (leaveEnd != null) 'leave_end': leaveEnd.toIso8601String(),
+    };
+
+    try {
+      final res = await _client
+          .post(
+            _u(_pGuardRequests),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = body is Map<String, dynamic>
+            ? Map<String, dynamic>.from(body)
+            : {'raw': body};
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة الطلبات غير متاحة (404). الرجاء التأكد من تحديث خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر إرسال الطلب. تحقق من البيانات المدخلة.');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  static Future<ApiResult> fetchGuardRequests({bool includeClosed = false}) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    final basePath = _joinUrl(kBaseUrl, _pGuardRequests);
+    final uri = includeClosed
+        ? Uri.parse('$basePath?include_closed=true')
+        : Uri.parse(basePath);
+
+    try {
+      final res = await _client
+          .get(
+            uri,
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200) {
+        List<dynamic> results = const [];
+        if (body is List) {
+          results = List<dynamic>.from(body);
+        } else if (body is Map && body['results'] is List) {
+          results = List<dynamic>.from(body['results'] as List);
+        }
+        final data = <String, dynamic>{
+          'results': results,
+          'raw': body,
+        };
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة الطلبات غير متاحة (404). الرجاء التأكد من تفعيلها في خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر تحميل الطلبات');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
     }
   }
 }

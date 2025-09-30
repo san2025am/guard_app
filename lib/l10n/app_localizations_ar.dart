@@ -105,16 +105,158 @@ class AppLocalizationsAr extends AppLocalizations {
   String get create_report_hint => 'ارسال تقرير جديد للمشرف';
 
   @override
+  String get report_subject => 'الموضوع';
+
+  @override
+  String get report_subject_required => 'حقل الموضوع مطلوب';
+
+  @override
+  String get report_details => 'التفاصيل';
+
+  @override
+  String get report_details_required => 'حقل التفاصيل مطلوب';
+
+  @override
+  String get report_type_label => 'نوع التقرير';
+
+  @override
+  String get report_type_required => 'يرجى اختيار نوع التقرير';
+
+  @override
+  String get report_type_daily => 'تقرير يومي';
+
+  @override
+  String get report_type_monthly => 'تقرير شهري';
+
+  @override
+  String get report_type_security => 'بلاغ أمني';
+
+  @override
+  String get report_type_complaint => 'شكوى';
+
+  @override
+  String get report_add_attachment => 'إضافة مرفق';
+
+  @override
+  String get report_attachments => 'المرفقات';
+
+  @override
+  String get report_attachment_image_camera => 'التقاط صورة بالكاميرا';
+
+  @override
+  String get report_attachment_image_gallery => 'اختيار صورة من المعرض';
+
+  @override
+  String get report_attachment_video_camera => 'تسجيل فيديو';
+
+  @override
+  String get report_attachment_video_gallery => 'اختيار فيديو من المعرض';
+
+  @override
+  String get report_attachment_remove => 'إزالة';
+
+  @override
+  String get report_attachment_pick_error => 'تعذر اختيار المرفق';
+
+  @override
+  String get submit_report => 'إرسال التقرير';
+
+  @override
+  String get report_submit_success => 'تم إرسال التقرير بنجاح';
+
+  @override
+  String get report_submit_error => 'تعذر إرسال التقرير';
+
+  @override
   String get open_requests => 'الطلبات المفتوحة';
 
   @override
   String get open_requests_hint => 'اعرض وتتبع طلباتك';
 
   @override
-  String get request_leave => 'طلب إجازة';
+  String get requests_empty_state => 'لا توجد طلبات مفتوحة بعد.';
 
   @override
-  String get request_leave_hint => 'قدّم طلب إجازة للموافقة';
+  String get requests_load_error => 'تعذر تحميل الطلبات';
+
+  @override
+  String get retry => 'إعادة المحاولة';
+
+  @override
+  String get request_type => 'النوع';
+
+  @override
+  String get request_status => 'الحالة';
+
+  @override
+  String get request_submitted_on => 'تاريخ التقديم';
+
+  @override
+  String get create_request => 'إنشاء طلب';
+
+  @override
+  String get create_request_hint => 'إرسال طلب جديد';
+
+  @override
+  String get request_type_required => 'يرجى اختيار نوع الطلب';
+
+  @override
+  String get request_type_coverage => 'تغطية';
+
+  @override
+  String get request_type_leave => 'إجازة';
+
+  @override
+  String get request_type_transfer => 'نقل';
+
+  @override
+  String get request_type_materials => 'مواد';
+
+  @override
+  String get request_description => 'التفاصيل';
+
+  @override
+  String get request_description_required => 'حقل التفاصيل مطلوب';
+
+  @override
+  String get leave_start_datetime => 'بداية الإجازة';
+
+  @override
+  String get leave_end_datetime => 'نهاية الإجازة';
+
+  @override
+  String get leave_start_not_selected => 'لم يتم اختيار البداية';
+
+  @override
+  String get leave_end_not_selected => 'لم يتم اختيار النهاية';
+
+  @override
+  String get leave_pick_dates_required =>
+      'يرجى اختيار وقت البداية والنهاية للإجازة';
+
+  @override
+  String get leave_end_must_follow_start => 'يجب أن تكون النهاية بعد البداية';
+
+  @override
+  String get leave_range => 'مدة الإجازة';
+
+  @override
+  String get leave_hours_label => 'ساعات الإجازة';
+
+  @override
+  String get submit_request => 'إرسال الطلب';
+
+  @override
+  String get request_submit_success => 'تم إرسال الطلب بنجاح';
+
+  @override
+  String get request_submit_error => 'تعذّر إرسال الطلب';
+
+  @override
+  String get request_approval_notes => 'ملاحظات القرار';
+
+  @override
+  String get request_approver => 'تمت المعالجة بواسطة';
 
   @override
   String get coming_soon => 'قريبًا';

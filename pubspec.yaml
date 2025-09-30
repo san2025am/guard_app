@@ -41,6 +41,7 @@ dependencies:
   intl:
   image_picker:
   geolocator:
+  http_parser:
   flutter_localizations:
       sdk: flutter
 

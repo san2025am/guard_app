@@ -105,16 +105,158 @@ class AppLocalizationsEn extends AppLocalizations {
   String get create_report_hint => 'Send a new report to supervisor';
 
   @override
+  String get report_subject => 'Subject';
+
+  @override
+  String get report_subject_required => 'Subject is required';
+
+  @override
+  String get report_details => 'Details';
+
+  @override
+  String get report_details_required => 'Details are required';
+
+  @override
+  String get report_type_label => 'Report type';
+
+  @override
+  String get report_type_required => 'Please choose the report type';
+
+  @override
+  String get report_type_daily => 'Daily report';
+
+  @override
+  String get report_type_monthly => 'Monthly report';
+
+  @override
+  String get report_type_security => 'Security incident';
+
+  @override
+  String get report_type_complaint => 'Complaint';
+
+  @override
+  String get report_add_attachment => 'Add attachment';
+
+  @override
+  String get report_attachments => 'Attachments';
+
+  @override
+  String get report_attachment_image_camera => 'Capture photo';
+
+  @override
+  String get report_attachment_image_gallery => 'Choose photo from gallery';
+
+  @override
+  String get report_attachment_video_camera => 'Record video';
+
+  @override
+  String get report_attachment_video_gallery => 'Choose video from gallery';
+
+  @override
+  String get report_attachment_remove => 'Remove';
+
+  @override
+  String get report_attachment_pick_error => 'Couldn\'t pick attachment';
+
+  @override
+  String get submit_report => 'Submit report';
+
+  @override
+  String get report_submit_success => 'Report submitted successfully';
+
+  @override
+  String get report_submit_error => 'Could not submit the report';
+
+  @override
   String get open_requests => 'Open requests';
 
   @override
   String get open_requests_hint => 'View and track your requests';
 
   @override
-  String get request_leave => 'Request leave';
+  String get requests_empty_state => 'No open requests yet.';
 
   @override
-  String get request_leave_hint => 'Submit a leave request';
+  String get requests_load_error => 'Couldn\'t load requests';
+
+  @override
+  String get retry => 'Retry';
+
+  @override
+  String get request_type => 'Type';
+
+  @override
+  String get request_status => 'Status';
+
+  @override
+  String get request_submitted_on => 'Submitted on';
+
+  @override
+  String get create_request => 'Create request';
+
+  @override
+  String get create_request_hint => 'Send a new request';
+
+  @override
+  String get request_type_required => 'Please choose a request type';
+
+  @override
+  String get request_type_coverage => 'Coverage';
+
+  @override
+  String get request_type_leave => 'Leave';
+
+  @override
+  String get request_type_transfer => 'Transfer';
+
+  @override
+  String get request_type_materials => 'Materials';
+
+  @override
+  String get request_description => 'Description';
+
+  @override
+  String get request_description_required => 'Description is required';
+
+  @override
+  String get leave_start_datetime => 'Leave start';
+
+  @override
+  String get leave_end_datetime => 'Leave end';
+
+  @override
+  String get leave_start_not_selected => 'No start selected';
+
+  @override
+  String get leave_end_not_selected => 'No end selected';
+
+  @override
+  String get leave_pick_dates_required =>
+      'Please select start and end for the leave';
+
+  @override
+  String get leave_end_must_follow_start => 'End must be after start';
+
+  @override
+  String get leave_range => 'Leave period';
+
+  @override
+  String get leave_hours_label => 'Leave hours';
+
+  @override
+  String get submit_request => 'Submit request';
+
+  @override
+  String get request_submit_success => 'Request submitted successfully';
+
+  @override
+  String get request_submit_error => 'Could not submit the request';
+
+  @override
+  String get request_approval_notes => 'Decision notes';
+
+  @override
+  String get request_approver => 'Handled by';
 
   @override
   String get coming_soon => 'Coming soon';
