@@ -299,12 +299,9 @@ class ApiService {
       }
       return {'ok': false, 'message': (body is Map && body['detail'] != null) ? body['detail'].toString() : 'تعذر إرسال الكود'};
     } catch (e) {
-<<<<<<< HEAD
+
       return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
-=======
-      return {'ok': false, 'message': 'Network error: $e'};
->>>>>>> parent of d40032c (Merge pull request #1 from san2025am/codex/improve-splash-page-design-and-features)
-    }
+ }
   }
 
   // ---------------------------------------------
