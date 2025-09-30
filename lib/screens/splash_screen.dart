@@ -14,6 +14,7 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
+<<<<<<< HEAD
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctl;
@@ -72,10 +73,28 @@ class _SplashScreenState extends State<SplashScreen>
   void dispose() {
     _ctl.dispose();
     super.dispose();
+=======
+class _SplashScreenState extends State<SplashScreen> {
+  @override
+  void initState() {
+    super.initState();
+    _go();
+  }
+
+  Future<void> _go() async {
+    final p = await SharedPreferences.getInstance();
+    final access = p.getString('access');
+    await Future.delayed(const Duration(milliseconds: 600));
+    if (!mounted) return;
+    Navigator.of(context).pushReplacementNamed(
+      (access != null && access.isNotEmpty) ? HomeGuard.route : LoginScreen.route,
+    );
+>>>>>>> parent of d40032c (Merge pull request #1 from san2025am/codex/improve-splash-page-design-and-features)
   }
 
   @override
   Widget build(BuildContext context) {
+<<<<<<< HEAD
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Scaffold(
@@ -126,5 +145,8 @@ class _SplashScreenState extends State<SplashScreen>
         ),
       ),
     );
+=======
+    return const Center(child: CircularProgressIndicator());
+>>>>>>> parent of d40032c (Merge pull request #1 from san2025am/codex/improve-splash-page-design-and-features)
   }
 }
