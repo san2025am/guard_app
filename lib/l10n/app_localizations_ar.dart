@@ -12,6 +12,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get app_title => 'سنام الأمن';
 
   @override
+  String get splash_tagline => 'حل رقمي متكامل لحراس الأمن';
+
+  @override
+  String get splash_loading => 'جاري تهيئة التطبيق...';
+
+  @override
   String get theme_light => 'نهاري';
 
   @override
@@ -30,19 +36,43 @@ class AppLocalizationsAr extends AppLocalizations {
   String get english => 'الإنجليزية';
 
   @override
+  String get language_settings_title => 'إعدادات اللغة';
+
+  @override
+  String get language_settings_hint => 'اختر اللغة التي تود استخدام التطبيق بها.';
+
+  @override
   String get login => 'تسجيل الدخول';
 
   @override
   String get username => 'اسم المستخدم';
 
   @override
+  String get email => 'البريد الإلكتروني';
+
+  @override
   String get password => 'كلمة المرور';
+
+  @override
+  String get email_required => 'يرجى إدخال البريد الإلكتروني';
+
+  @override
+  String get email_invalid => 'صيغة البريد الإلكتروني غير صحيحة';
 
   @override
   String get forgot_password => 'نسيت كلمة المرور؟';
 
   @override
-  String get send_code => 'إرسال الرمز للبريد';
+  String get forgot_via_username => 'باستخدام اسم المستخدم';
+
+  @override
+  String get forgot_via_email => 'باستخدام البريد الإلكتروني';
+
+  @override
+  String get send_code => 'إرسال رمز الاستعادة';
+
+  @override
+  String get email_sent_success => 'تم إرسال رابط الاستعادة إلى بريدك';
 
   @override
   String get reset_password => 'استعادة كلمة المرور';

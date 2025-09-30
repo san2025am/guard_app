@@ -298,6 +298,34 @@ class ApiService {
   }
 
   // ---------------------------------------------
+  // نسيت كلمة المرور — بالبريد الإلكتروني
+  // POST /auth/password/forgot/email/
+  // body: {email}
+  // ---------------------------------------------
+  static Future<Map<String, dynamic>> forgotByEmail(String email) async {
+    try {
+      final res = await _client.post(
+        _u('/auth/password/forgot/email/'),
+        headers: _jsonHeaders(),
+        body: jsonEncode({'email': email}),
+      ).timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200 && body is Map<String, dynamic>) {
+        return {'ok': true, 'session_id': body['session_id'], 'detail': body['detail']};
+      }
+      return {
+        'ok': false,
+        'message': (body is Map && body['detail'] != null)
+            ? body['detail'].toString()
+            : 'تعذر إرسال البريد الإلكتروني',
+      };
+    } catch (e) {
+      return {'ok': false, 'message': 'Network error: $e'};
+    }
+  }
+
+  // ---------------------------------------------
   // إعادة تعيين كلمة المرور (session_id + code + new_password)
   // POST /auth/password/reset/username/
   // ---------------------------------------------

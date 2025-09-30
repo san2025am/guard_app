@@ -12,6 +12,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get app_title => 'Sanam Security';
 
   @override
+  String get splash_tagline => 'A digital companion for security guards.';
+
+  @override
+  String get splash_loading => 'Preparing your workspace...';
+
+  @override
   String get theme_light => 'Light';
 
   @override
@@ -30,19 +36,43 @@ class AppLocalizationsEn extends AppLocalizations {
   String get english => 'English';
 
   @override
+  String get language_settings_title => 'Language settings';
+
+  @override
+  String get language_settings_hint => 'Choose the language you prefer to use in the app.';
+
+  @override
   String get login => 'Login';
 
   @override
   String get username => 'Username';
 
   @override
+  String get email => 'Email';
+
+  @override
   String get password => 'Password';
+
+  @override
+  String get email_required => 'Please enter your email';
+
+  @override
+  String get email_invalid => 'Enter a valid email address';
 
   @override
   String get forgot_password => 'Forgot password?';
 
   @override
-  String get send_code => 'Send code to email';
+  String get forgot_via_username => 'Use username';
+
+  @override
+  String get forgot_via_email => 'Use email';
+
+  @override
+  String get send_code => 'Send reset code';
+
+  @override
+  String get email_sent_success => "We've sent a reset link to your email.";
 
   @override
   String get reset_password => 'Reset password';
