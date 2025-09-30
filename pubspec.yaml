@@ -39,7 +39,7 @@ dependencies:
   provider:
   http:
   intl:
-
+  image_picker:
   geolocator:
   flutter_localizations:
       sdk: flutter

@@ -1,6 +1,7 @@
 // lib/services/api.dart
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
@@ -18,18 +19,25 @@ import '../models/employee.dart'; // يجب أن يحتوي EmployeeMe.fromJson(
 // --------------------------------------------------------
 const String kBaseUrl = "http://31.97.158.157/api/v1";
 
+// مسارات جاهزة (لمنع الأخطاء المطبعية):
+const String _pLogin           = '/auth/guard/login/';
+const String _pMeGet           = '/auth/guard/me/';
+const String _pMePost          = '/auth/guard/me/'; // إن كانت POST عندك
+const String _pForgotUsername  = '/auth/password/forgot/username/';
+const String _pResetBySession  = '/auth/password/reset/username/';
+const String _pResolveLocation = '/attendance/resolve-location/';
+const String _pAttendanceCheck = '/attendance/check/';
+
 // ========================================================
 // مُساعِدات عامة
 // ========================================================
 
 String _joinUrl(String base, String path) {
-  // يضمن عدم تكرار أو نقص الـ slash
   base = base.trim();
   if (base.endsWith('/')) base = base.substring(0, base.length - 1);
   if (!path.startsWith('/')) path = '/$path';
   return '$base$path';
 }
-
 
 Uri _u(String path) => Uri.parse(_joinUrl(kBaseUrl, path));
 
@@ -128,7 +136,7 @@ class ApiService {
       ) async {
     try {
       final res = await _client.post(
-        _u('/auth/guard/login/'), // عدّل المسار إن لزم
+        _u(_pLogin),
         headers: _jsonHeaders(),
         body: jsonEncode({'username': username, 'password': password}),
       ).timeout(const Duration(seconds: 20));
@@ -142,7 +150,7 @@ class ApiService {
         final access  = (body['access'] ?? body['token'])?.toString() ?? '';
         final refresh = (body['refresh'] ?? '').toString();
         if (access.isEmpty) {
-          return {'ok': false, 'message': 'لم يستلم التطبيق access token.'};
+          return {'ok': false, 'message': 'لم يستلم التطبيق رمز الدخول (access token).'};
         }
         await _saveTokensRaw(access: access, refresh: refresh);
 
@@ -172,19 +180,19 @@ class ApiService {
 
       // خطأ JSON مفهوم
       if (body is Map<String, dynamic>) {
-        return {'ok': false, 'message': (body['detail'] ?? body['message'] ?? 'Login failed').toString()};
+        return {'ok': false, 'message': (body['detail'] ?? body['message'] ?? 'تعذّر تسجيل الدخول').toString()};
       }
 
       // محتوى غير JSON
-      return {'ok': false, 'message': "الخادم أعاد محتوى غير JSON (status ${res.statusCode})."};
+      return {'ok': false, 'message': "الخادم أعاد محتوى غير متوقع (رمز ${res.statusCode})."};
     } catch (e) {
-      return {'ok': false, 'message': 'Network error: $e'};
+      return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
     }
   }
 
   // ---------------------------------------------
   // جلب ملف الموظف وحفظه في الكاش
-  // GET /auth/guard/me/  (عدّل المسار إن لزم)
+  // GET /auth/guard/me/
   // قد يرجع {employee:{...}} أو مباشرة {...}
   // ---------------------------------------------
   static Future<EmployeeMe?> fetchEmployeeAndCache() async {
@@ -194,7 +202,7 @@ class ApiService {
 
     try {
       final res = await _client.get(
-        _u('/auth/guard/me/'),
+        _u(_pMeGet),
         headers: {
           ..._jsonHeaders(),
           'Authorization': authHeader(accessRaw),
@@ -244,7 +252,7 @@ class ApiService {
     if (accessRaw == null || accessRaw.isEmpty) return null;
 
     final res = await _client.post(
-      _u('/auth/guard/me/'),
+      _u(_pMePost),
       headers: {
         ..._jsonHeaders(),
         'Authorization': authHeader(accessRaw),
@@ -263,7 +271,7 @@ class ApiService {
     return null;
   }
 
-  // تسجيل خروج — حذف كل البينات
+  // تسجيل خروج — حذف كل البيانات
   static Future<void> logout() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kAccessKeyNew);
@@ -276,13 +284,11 @@ class ApiService {
 
   // ---------------------------------------------
   // نسيت كلمة المرور — باسم المستخدم
-  // POST /auth/password/forgot/username/
-  // body: {username}
   // ---------------------------------------------
   static Future<Map<String, dynamic>> forgotByUsername(String username) async {
     try {
       final res = await _client.post(
-        _u('/auth/password/forgot/username/'),
+        _u(_pForgotUsername),
         headers: _jsonHeaders(),
         body: jsonEncode({'username': username}),
       ).timeout(const Duration(seconds: 20));
@@ -293,13 +299,12 @@ class ApiService {
       }
       return {'ok': false, 'message': (body is Map && body['detail'] != null) ? body['detail'].toString() : 'تعذر إرسال الكود'};
     } catch (e) {
-      return {'ok': false, 'message': 'Network error: $e'};
+      return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
     }
   }
 
   // ---------------------------------------------
   // إعادة تعيين كلمة المرور (session_id + code + new_password)
-  // POST /auth/password/reset/username/
   // ---------------------------------------------
   static Future<Map<String, dynamic>> resetBySession({
     required int sessionId,
@@ -308,7 +313,7 @@ class ApiService {
   }) async {
     try {
       final res = await _client.post(
-        _u('/auth/password/reset/username/'),
+        _u(_pResetBySession),
         headers: _jsonHeaders(),
         body: jsonEncode({
           'session_id': sessionId,
@@ -323,7 +328,7 @@ class ApiService {
       }
       return {'ok': false, 'message': (body is Map && body['detail'] != null) ? body['detail'].toString() : 'فشل التحقق من الرمز'};
     } catch (e) {
-      return {'ok': false, 'message': 'Network error: $e'};
+      return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
     }
   }
 }
@@ -379,10 +384,12 @@ Future<Position> getBestFix({
 /// إرسال حضور/انصراف (يلتقط الموقع داخليًا)
 Future<ApiResult> sendAttendance({
   required String baseUrl,      // مثال: http://31.97.158.157/api/v1
-  required String token,        // التوكن الخام أو "Bearer <...>" — دالة authHeader تتكفل
-  required dynamic locationId,  // int عادةً (أو UUID لو الـ API يسمح)
-  required String action,       // "check_in" أو "check_out"
+  required String token,        // التوكن الخام أو "Bearer <...>"
+  required dynamic locationId,  // int أو UUID
+  required String action,       // "check_in" | "check_out" | "early_check_out"
   Duration window = const Duration(seconds: 8),
+  String? earlyReason,
+  File? earlyAttachment,
 }) async {
   try {
     final pos = await getBestFix(window: window);
@@ -392,6 +399,8 @@ Future<ApiResult> sendAttendance({
       locationId: locationId,
       action: action,
       pos: pos,
+      earlyReason: earlyReason,
+      earlyAttachment: earlyAttachment,
     );
   } catch (e) {
     return (ok: false, message: e.toString(), data: null);
@@ -399,64 +408,62 @@ Future<ApiResult> sendAttendance({
 }
 
 /// إرسال حضور/انصراف بقراءة Position جاهزة
-
 Future<ApiResult> sendAttendanceWithPosition({
   required String baseUrl,
-  required String token,        // خام أو مع "Bearer" — سيتم ضبطه
-  required dynamic locationId,  // int أو UUID حسب السيرفر
-  required String action,       // "check_in" أو "check_out"
+  required String token,
+  required dynamic locationId,
+  required String action,           // check_in | check_out | early_check_out
   required Position pos,
+  String? earlyReason,
+  File? earlyAttachment,
 }) async {
   try {
-    final uri = Uri.parse(_joinUrl(baseUrl, 'attendance/check/')); // يبني URL صحيحًا
-    final res = await http.post(
-      uri,
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Authorization': authHeader(token),
-      },
-      body: jsonEncode({
-        'location_id': (locationId is String) ? locationId : locationId?.toString(),
-        'action': action,
-        'lat': pos.latitude,
-        'lng': pos.longitude,
-        'accuracy': pos.accuracy,
-      }),
-    );
+    final uri = Uri.parse(_joinUrl(baseUrl, _pAttendanceCheck));
+
+    final Map<String, dynamic> body = {
+      'location_id': locationId,
+      'action': action,
+      'lat': pos.latitude,
+      'lng': pos.longitude,
+      'accuracy': pos.accuracy,
+      if (earlyReason != null && earlyReason.isNotEmpty) 'early_reason': earlyReason,
+    };
+
+    http.Response res;
+    if (earlyAttachment != null) {
+      // مرفق اختياري لانصراف مبكر
+      final req = http.MultipartRequest('POST', uri);
+      req.headers.addAll({'Authorization': authHeader(token)});
+      body.forEach((k, v) => req.fields[k] = v.toString());
+      req.files.add(await http.MultipartFile.fromPath('early_attachment', earlyAttachment.path));
+      final streamed = await req.send();
+      res = await http.Response.fromStream(streamed);
+    } else {
+      res = await http.post(
+        uri,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+          'Authorization': authHeader(token),
+        },
+        body: jsonEncode(body),
+      );
+    }
 
     final text = utf8.decode(res.bodyBytes);
     Map<String, dynamic>? data;
     try { data = jsonDecode(text) as Map<String, dynamic>; } catch (_) {}
 
-    final ok = res.statusCode >= 200 && res.statusCode < 300;
+    // ok = 200/201 + ok=true (إن وُجد)
+    final ok = (res.statusCode == 200 || res.statusCode == 201) && (data?['ok'] ?? true);
+    // الرسالة بالعربي إن وُجدت، وإلا fallback لطيف
+    final msg = (data?['detail']?.toString() ?? (ok ? 'تم تنفيذ العملية بنجاح' : 'تعذر تنفيذ الطلب'));
 
-    String msg;
-    if (ok) {
-      msg = data?['detail']?.toString() ?? 'تم';
-    } else {
-      // استخرج رسالة مفيدة
-      if (data != null) {
-        if (data['detail'] is String) msg = data['detail'];
-        else if (data['non_field_errors'] is List && (data['non_field_errors'] as List).isNotEmpty) {
-          msg = (data['non_field_errors'] as List).join('، ');
-        } else if (data['errors'] is List && (data['errors'] as List).isNotEmpty) {
-          msg = (data['errors'] as List).join('، ');
-        } else {
-          final snippet = text.replaceAll(RegExp(r'\s+'), ' ');
-          msg = 'HTTP ${res.statusCode}: ' + (snippet.length > 180 ? snippet.substring(0, 180) + '…' : snippet);
-        }
-      } else {
-        final snippet = text.replaceAll(RegExp(r'\s+'), ' ');
-        msg = 'HTTP ${res.statusCode}: ' + (snippet.length > 180 ? snippet.substring(0, 180) + '…' : snippet);
-      }
-    }
     return (ok: ok, message: msg, data: data);
   } catch (e) {
-    return (ok: false, message: e.toString(), data: null);
+    return (ok: false, message: 'خطأ في الاتصال: $e', data: null);
   }
 }
-
 
 /// Endpoint مساعد: يحاول تحديد أقرب موقع (اختياري)
 Future<ApiResult> resolveMyLocation({
@@ -467,7 +474,7 @@ Future<ApiResult> resolveMyLocation({
   required double accuracy,
 }) async {
   try {
-    final uri = Uri.parse(_joinUrl(baseUrl, 'attendance/resolve-location/'));
+    final uri = Uri.parse(_joinUrl(baseUrl, _pResolveLocation));
     final res = await http.post(
       uri,
       headers: {
@@ -483,9 +490,114 @@ Future<ApiResult> resolveMyLocation({
     try { data = jsonDecode(text) as Map<String, dynamic>; } catch (_) {}
 
     final ok  = res.statusCode >= 200 && res.statusCode < 300;
-    final msg = data?['detail']?.toString() ?? (ok ? 'تم' : 'فشل');
+    final msg = data?['detail']?.toString() ?? (ok ? 'تم' : 'تعذر تحديد الموقع');
     return (ok: ok, message: msg, data: data);
   } catch (e) {
     return (ok: false, message: e.toString(), data: null);
+  }
+}
+
+// ========================================================
+// دوال مختصرة "آلية بالكامل": تحديد موقع + تحقق وردية + إرسال
+// تناسب واجهة المستخدم لتقليل الخطوات في الشاشة.
+// ========================================================
+
+/// حضور تلقائي: يلتقط GPS -> يحدّد الموقع -> يرسل check_in
+Future<ApiResult> checkInAuto({
+  String baseUrl = kBaseUrl,
+  required String token,
+  Duration fixWindow = const Duration(seconds: 8),
+}) async {
+  try {
+    final pos = await getBestFix(window: fixWindow);
+    final r = await resolveMyLocation(
+      baseUrl: baseUrl,
+      token: token,
+      lat: pos.latitude,
+      lng: pos.longitude,
+      accuracy: pos.accuracy,
+    );
+    if (!r.ok || r.data?['location_id'] == null) {
+      return (ok: false, message: r.message.isNotEmpty ? r.message : 'لا يوجد موقع مكلّف به هنا', data: r.data);
+    }
+    final lid = r.data!['location_id'].toString();
+    final res = await sendAttendanceWithPosition(
+      baseUrl: baseUrl,
+      token: token,
+      locationId: lid,
+      action: 'check_in',
+      pos: pos,
+    );
+    return res;
+  } catch (e) {
+    return (ok: false, message: 'تعذّر إتمام الحضور: $e', data: null);
+  }
+}
+
+/// انصراف تلقائي
+Future<ApiResult> checkOutAuto({
+  String baseUrl = kBaseUrl,
+  required String token,
+  Duration fixWindow = const Duration(seconds: 8),
+}) async {
+  try {
+    final pos = await getBestFix(window: fixWindow);
+    final r = await resolveMyLocation(
+      baseUrl: baseUrl,
+      token: token,
+      lat: pos.latitude,
+      lng: pos.longitude,
+      accuracy: pos.accuracy,
+    );
+    if (!r.ok || r.data?['location_id'] == null) {
+      return (ok: false, message: r.message.isNotEmpty ? r.message : 'لا يوجد موقع مكلّف به هنا', data: r.data);
+    }
+    final lid = r.data!['location_id'].toString();
+    final res = await sendAttendanceWithPosition(
+      baseUrl: baseUrl,
+      token: token,
+      locationId: lid,
+      action: 'check_out',
+      pos: pos,
+    );
+    return res;
+  } catch (e) {
+    return (ok: false, message: 'تعذّر إتمام الانصراف: $e', data: null);
+  }
+}
+
+/// انصراف مبكر تلقائي — مع سبب ومرفق اختياري
+Future<ApiResult> earlyCheckOutAuto({
+  String baseUrl = kBaseUrl,
+  required String token,
+  required String reason,
+  File? attachment,
+  Duration fixWindow = const Duration(seconds: 8),
+}) async {
+  try {
+    final pos = await getBestFix(window: fixWindow);
+    final r = await resolveMyLocation(
+      baseUrl: baseUrl,
+      token: token,
+      lat: pos.latitude,
+      lng: pos.longitude,
+      accuracy: pos.accuracy,
+    );
+    if (!r.ok || r.data?['location_id'] == null) {
+      return (ok: false, message: r.message.isNotEmpty ? r.message : 'لا يوجد موقع مكلّف به هنا', data: r.data);
+    }
+    final lid = r.data!['location_id'].toString();
+    final res = await sendAttendanceWithPosition(
+      baseUrl: baseUrl,
+      token: token,
+      locationId: lid,
+      action: 'early_check_out',
+      pos: pos,
+      earlyReason: reason,
+      earlyAttachment: attachment,
+    );
+    return res;
+  } catch (e) {
+    return (ok: false, message: 'تعذّر إتمام الانصراف المبكر: $e', data: null);
   }
 }
