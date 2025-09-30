@@ -52,7 +52,7 @@ class SanamApp extends StatelessWidget {
         GlobalCupertinoLocalizations.delegate,
       ],
 
-      home: const Shell(child: SplashScreen()),
+      home: const Shell(child: SplashScreen(), showAppBar: false),
 
       routes: {
         LoginScreen.route: (_) => const Shell(child: LoginScreen()),
@@ -67,7 +67,8 @@ class SanamApp extends StatelessWidget {
 /// شيل يضيف AppBar موحّد بأزرار (تبديل الثيم واللغة) لكل شاشة
 class Shell extends StatelessWidget {
   final Widget child;
-  const Shell({super.key, required this.child});
+  final bool showAppBar;
+  const Shell({super.key, required this.child, this.showAppBar = true});
   Future<void> _logout(BuildContext context) async {
     await ApiService.logout();
     Navigator.of(context).pushNamedAndRemoveUntil(
@@ -86,35 +87,37 @@ class Shell extends StatelessWidget {
       textDirection: settings.locale.languageCode == 'ar'
           ? TextDirection.rtl : TextDirection.ltr,
       child: Scaffold(
-        appBar: AppBar(
-          title: Text(t.app_title),
-          actions: [
+        appBar: showAppBar
+            ? AppBar(
+                title: Text(t.app_title),
+                actions: [
 
-            // تبديل الثيم
-            IconButton(
-              tooltip: t.toggle_theme,
-              onPressed: () => settings.toggleTheme(),
-              icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-            ),
-            // اختيار اللغة
-            PopupMenuButton<String>(
-              tooltip: t.language,
-              icon: const Icon(Icons.language),
-              onSelected: (v) {
-                settings.setLocale(Locale(v));
-              },
-              itemBuilder: (ctx) => [
-                PopupMenuItem(value: 'ar', child: Text(t.arabic)),
-                PopupMenuItem(value: 'en', child: Text(t.english)),
-              ],
-            ),
-            IconButton(
-              icon: const Icon(Icons.logout),
-              tooltip: t.logout, // أو نص يدوي "تسجيل الخروج"
-              onPressed: () => _logout(context),
-            ),
-          ],
-        ),
+                  // تبديل الثيم
+                  IconButton(
+                    tooltip: t.toggle_theme,
+                    onPressed: () => settings.toggleTheme(),
+                    icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+                  ),
+                  // اختيار اللغة
+                  PopupMenuButton<String>(
+                    tooltip: t.language,
+                    icon: const Icon(Icons.language),
+                    onSelected: (v) {
+                      settings.setLocale(Locale(v));
+                    },
+                    itemBuilder: (ctx) => [
+                      PopupMenuItem(value: 'ar', child: Text(t.arabic)),
+                      PopupMenuItem(value: 'en', child: Text(t.english)),
+                    ],
+                  ),
+                  IconButton(
+                    icon: const Icon(Icons.logout),
+                    tooltip: t.logout, // أو نص يدوي "تسجيل الخروج"
+                    onPressed: () => _logout(context),
+                  ),
+                ],
+              )
+            : null,
         body: child,
       ),
     );
