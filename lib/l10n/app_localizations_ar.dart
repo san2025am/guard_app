@@ -183,6 +183,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get retry => 'إعادة المحاولة';
 
   @override
+  String get open_advances => 'طلبات السلف';
+
+  @override
+  String get open_advances_hint => 'مراجعة طلبات السلف السابقة';
+
+  @override
   String get request_type => 'النوع';
 
   @override
@@ -242,6 +248,48 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get leave_hours_label => 'ساعات الإجازة';
+
+  @override
+  String get create_advance => 'طلب سلفة جديد';
+
+  @override
+  String get create_advance_short => 'سلفة جديدة';
+
+  @override
+  String get create_advance_hint => 'إرسال طلب سلفة من الراتب';
+
+  @override
+  String get advance_amount => 'المبلغ';
+
+  @override
+  String get advance_amount_required => 'يرجى إدخال مبلغ صحيح';
+
+  @override
+  String get advance_reason => 'السبب (اختياري)';
+
+  @override
+  String get advance_submit => 'إرسال طلب السلفة';
+
+  @override
+  String get advance_submit_success => 'تم إرسال طلب السلفة';
+
+  @override
+  String get advance_submit_error => 'تعذر إرسال طلب السلفة';
+
+  @override
+  String get advances_load_error => 'تعذر تحميل السلف';
+
+  @override
+  String get advances_empty_state => 'لا توجد طلبات سلف حتى الآن.';
+
+  @override
+  String get advance_requested_on => 'تم الطلب في';
+
+  @override
+  String get advance_approved_on => 'تمت الموافقة في';
+
+  @override
+  String get currency_short_symbol => 'ر.س';
 
   @override
   String get submit_request => 'إرسال الطلب';

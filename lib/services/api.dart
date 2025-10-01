@@ -30,6 +30,7 @@ const String _pResolveLocation = '/attendance/resolve-location/';
 const String _pAttendanceCheck = '/attendance/check/';
 const String _pGuardReports    = '/guards/reports/';
 const String _pGuardRequests   = '/guards/requests/';
+const String _pGuardAdvances   = '/guards/advances/';
 
 // ========================================================
 // مُساعِدات عامة
@@ -533,6 +534,112 @@ class ApiService {
       }
 
       final message = _messageFromBody(body, 'تعذّر إرسال الطلب. تحقق من البيانات المدخلة.');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  static Future<ApiResult> submitGuardAdvance({
+    required double amount,
+    String? reason,
+  }) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    final payload = {
+      'amount': amount,
+      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+    };
+
+    try {
+      final res = await _client
+          .post(
+            _u(_pGuardAdvances),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = body is Map<String, dynamic>
+            ? Map<String, dynamic>.from(body)
+            : {'raw': body};
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة السلف غير متاحة (404). الرجاء التأكد من تفعيلها في خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر إرسال طلب السلفة. تحقق من البيانات المدخلة.');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  static Future<ApiResult> fetchGuardAdvances() async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    try {
+      final res = await _client
+          .get(
+            _u(_pGuardAdvances),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200) {
+        List<dynamic> results = const [];
+        if (body is List) {
+          results = List<dynamic>.from(body);
+        } else if (body is Map && body['results'] is List) {
+          results = List<dynamic>.from(body['results'] as List);
+        }
+        final data = <String, dynamic>{
+          'results': results,
+          'raw': body,
+        };
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة السلف غير متاحة (404). الرجاء التأكد من تفعيلها في خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر تحميل السلف');
       final data = body is Map<String, dynamic>
           ? Map<String, dynamic>.from(body)
           : (body is Map

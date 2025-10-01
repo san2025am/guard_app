@@ -446,6 +446,18 @@ abstract class AppLocalizations {
   /// **'Retry'**
   String get retry;
 
+  /// No description provided for @open_advances.
+  ///
+  /// In en, this message translates to:
+  /// **'Advance requests'**
+  String get open_advances;
+
+  /// No description provided for @open_advances_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Review submitted salary advances'**
+  String get open_advances_hint;
+
   /// No description provided for @request_type.
   ///
   /// In en, this message translates to:
@@ -565,6 +577,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Leave hours'**
   String get leave_hours_label;
+
+  /// No description provided for @create_advance.
+  ///
+  /// In en, this message translates to:
+  /// **'New advance request'**
+  String get create_advance;
+
+  /// No description provided for @create_advance_short.
+  ///
+  /// In en, this message translates to:
+  /// **'New advance'**
+  String get create_advance_short;
+
+  /// No description provided for @create_advance_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit a salary advance request'**
+  String get create_advance_hint;
+
+  /// No description provided for @advance_amount.
+  ///
+  /// In en, this message translates to:
+  /// **'Amount'**
+  String get advance_amount;
+
+  /// No description provided for @advance_amount_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Please enter a valid amount'**
+  String get advance_amount_required;
+
+  /// No description provided for @advance_reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Reason (optional)'**
+  String get advance_reason;
+
+  /// No description provided for @advance_submit.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit advance'**
+  String get advance_submit;
+
+  /// No description provided for @advance_submit_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Advance request submitted'**
+  String get advance_submit_success;
+
+  /// No description provided for @advance_submit_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not submit the advance request'**
+  String get advance_submit_error;
+
+  /// No description provided for @advances_load_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load advances'**
+  String get advances_load_error;
+
+  /// No description provided for @advances_empty_state.
+  ///
+  /// In en, this message translates to:
+  /// **'No advances yet.'**
+  String get advances_empty_state;
+
+  /// No description provided for @advance_requested_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Requested on'**
+  String get advance_requested_on;
+
+  /// No description provided for @advance_approved_on.
+  ///
+  /// In en, this message translates to:
+  /// **'Approved on'**
+  String get advance_approved_on;
+
+  /// No description provided for @currency_short_symbol.
+  ///
+  /// In en, this message translates to:
+  /// **'SAR'**
+  String get currency_short_symbol;
 
   /// No description provided for @submit_request.
   ///

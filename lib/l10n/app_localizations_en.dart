@@ -183,6 +183,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get retry => 'Retry';
 
   @override
+  String get open_advances => 'Advance requests';
+
+  @override
+  String get open_advances_hint => 'Review submitted salary advances';
+
+  @override
   String get request_type => 'Type';
 
   @override
@@ -242,6 +248,48 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get leave_hours_label => 'Leave hours';
+
+  @override
+  String get create_advance => 'New advance request';
+
+  @override
+  String get create_advance_short => 'New advance';
+
+  @override
+  String get create_advance_hint => 'Submit a salary advance request';
+
+  @override
+  String get advance_amount => 'Amount';
+
+  @override
+  String get advance_amount_required => 'Please enter a valid amount';
+
+  @override
+  String get advance_reason => 'Reason (optional)';
+
+  @override
+  String get advance_submit => 'Submit advance';
+
+  @override
+  String get advance_submit_success => 'Advance request submitted';
+
+  @override
+  String get advance_submit_error => 'Could not submit the advance request';
+
+  @override
+  String get advances_load_error => 'Couldn\'t load advances';
+
+  @override
+  String get advances_empty_state => 'No advances yet.';
+
+  @override
+  String get advance_requested_on => 'Requested on';
+
+  @override
+  String get advance_approved_on => 'Approved on';
+
+  @override
+  String get currency_short_symbol => 'SAR';
 
   @override
   String get submit_request => 'Submit request';

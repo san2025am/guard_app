@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 
 import '../l10n/app_localizations.dart';
+import '../models/guard_advance.dart';
 import '../models/guard_request.dart';
 import '../services/api.dart';
 
@@ -498,6 +499,108 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   }
 }
 
+class CreateAdvanceScreen extends StatefulWidget {
+  const CreateAdvanceScreen({super.key});
+
+  @override
+  State<CreateAdvanceScreen> createState() => _CreateAdvanceScreenState();
+}
+
+class _CreateAdvanceScreenState extends State<CreateAdvanceScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _amountController = TextEditingController();
+  final _reasonController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _reasonController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submit() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final t = AppLocalizations.of(context)!;
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
+
+    setState(() => _submitting = true);
+
+    final result = await ApiService.submitGuardAdvance(
+      amount: amount,
+      reason: _reasonController.text.trim(),
+    );
+
+    if (!mounted) return;
+
+    setState(() => _submitting = false);
+
+    if (result.ok) {
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(t.advance_submit_success)));
+      Navigator.of(context).pop(true);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(result.message.isNotEmpty ? result.message : t.advance_submit_error)),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+
+    return Scaffold(
+      appBar: AppBar(title: Text(t.create_advance)),
+      body: SafeArea(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16),
+          child: Form(
+            key: _formKey,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextFormField(
+                  controller: _amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(labelText: t.advance_amount),
+                  validator: (value) {
+                    final parsed = double.tryParse((value ?? '').trim());
+                    if (parsed == null || parsed <= 0) {
+                      return t.advance_amount_required;
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                TextFormField(
+                  controller: _reasonController,
+                  textInputAction: TextInputAction.newline,
+                  minLines: 3,
+                  maxLines: 6,
+                  decoration: InputDecoration(labelText: t.advance_reason),
+                ),
+                const SizedBox(height: 24),
+                FilledButton.icon(
+                  onPressed: _submitting ? null : _submit,
+                  icon: _submitting
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.send),
+                  label: Text(t.advance_submit),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class OpenRequestsScreen extends StatefulWidget {
   const OpenRequestsScreen({super.key});
 
@@ -690,6 +793,192 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                                 '${t.request_approver}: ${request.approverName!}',
                                 style: theme.textTheme.bodySmall,
                               ),
+                            ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class AdvancesScreen extends StatefulWidget {
+  const AdvancesScreen({super.key});
+
+  @override
+  State<AdvancesScreen> createState() => _AdvancesScreenState();
+}
+
+class _AdvancesScreenState extends State<AdvancesScreen> {
+  late Future<List<GuardAdvance>> _future;
+
+  @override
+  void initState() {
+    super.initState();
+    _future = _load();
+  }
+
+  Future<List<GuardAdvance>> _load() async {
+    final result = await ApiService.fetchGuardAdvances();
+    if (!result.ok) {
+      throw Exception(result.message);
+    }
+
+    final data = result.data;
+    List<dynamic> raw = const [];
+    if (data != null && data['results'] is List) {
+      raw = List<dynamic>.from(data['results'] as List);
+    } else if (data != null && data['raw'] is List) {
+      raw = List<dynamic>.from(data['raw'] as List);
+    }
+
+    final advances = <GuardAdvance>[];
+    for (final item in raw) {
+      if (item is Map) {
+        try {
+          advances.add(GuardAdvance.fromJson(item as Map));
+        } catch (_) {
+          // ignore invalid rows
+        }
+      }
+    }
+    return advances;
+  }
+
+  Future<void> _refresh() async {
+    setState(() {
+      _future = _load();
+    });
+    await _future;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(t.open_advances)),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () async {
+          final created = await Navigator.of(context).push<bool>(
+            MaterialPageRoute(builder: (_) => const CreateAdvanceScreen()),
+          );
+          if (created == true) {
+            await _refresh();
+            if (!mounted) return;
+            ScaffoldMessenger.of(context)
+                .showSnackBar(SnackBar(content: Text(t.advance_submit_success)));
+          }
+        },
+        icon: const Icon(Icons.add),
+        label: Text(t.create_advance_short),
+      ),
+      body: SafeArea(
+        child: RefreshIndicator(
+          onRefresh: _refresh,
+          child: FutureBuilder<List<GuardAdvance>>(
+            future: _future,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Center(child: CircularProgressIndicator());
+              }
+
+              if (snapshot.hasError) {
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(t.advances_load_error, style: theme.textTheme.titleMedium),
+                            const SizedBox(height: 8),
+                            Text(snapshot.error.toString()),
+                            const SizedBox(height: 12),
+                            Align(
+                              alignment: AlignmentDirectional.centerEnd,
+                              child: FilledButton(
+                                onPressed: _refresh,
+                                child: Text(t.retry),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              final advances = snapshot.data ?? const [];
+              if (advances.isEmpty) {
+                return ListView(
+                  padding: const EdgeInsets.all(16),
+                  children: [
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Text(t.advances_empty_state),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              final currency = NumberFormat.currency(symbol: t.currency_short_symbol, decimalDigits: 2);
+
+              return ListView.separated(
+                padding: const EdgeInsets.all(16),
+                itemCount: advances.length,
+                separatorBuilder: (_, __) => const SizedBox(height: 12),
+                itemBuilder: (context, index) {
+                  final advance = advances[index];
+                  final amountText = currency.format(advance.amount);
+                  return Card(
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  amountText,
+                                  style: theme.textTheme.titleMedium,
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Chip(
+                                label: Text(advance.statusDisplay.isEmpty ? '-' : advance.statusDisplay),
+                                labelStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                          if (advance.reason != null && advance.reason!.isNotEmpty)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text(advance.reason!),
+                            ),
+                          if (advance.formattedRequestedAt != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Text('${t.advance_requested_on}: ${advance.formattedRequestedAt}'),
+                            ),
+                          if (advance.formattedApprovedAt != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 4),
+                              child: Text('${t.advance_approved_on}: ${advance.formattedApprovedAt}'),
                             ),
                         ],
                       ),
