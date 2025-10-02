@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api.dart';
+import '../services/auth.dart';
 import 'forgot_password_screen.dart';
 import 'home_guard.dart';
 
