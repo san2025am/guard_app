@@ -193,63 +193,6 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
 
           const SizedBox(height: 12),
 
-          Consumer<AppSettings>(
-            builder: (context, settings, _) {
-              final currentLanguage =
-                  settings.locale.languageCode == 'ar' ? t.arabic : t.english;
-              return Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        t.language_settings_title,
-                        style: theme.textTheme.titleMedium,
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        '${t.language}: $currentLanguage',
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        t.language_settings_hint,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 16),
-                      Wrap(
-                        spacing: 12,
-                        children: [
-                          ChoiceChip(
-                            label: Text(t.arabic),
-                            selected:
-                                settings.locale.languageCode.toLowerCase() ==
-                                    'ar',
-                            onSelected: (v) {
-                              if (v) settings.setLocale(const Locale('ar'));
-                            },
-                          ),
-                          ChoiceChip(
-                            label: Text(t.english),
-                            selected:
-                                settings.locale.languageCode.toLowerCase() ==
-                                    'en',
-                            onSelected: (v) {
-                              if (v) settings.setLocale(const Locale('en'));
-                            },
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 12),
-
           // ===== بيانات أساسية =====
           Card(
             child: Column(
@@ -780,7 +723,6 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    final t = AppLocalizations.of(context)!;
     final cs = Theme.of(context).colorScheme;
     final timeStr = _time == null ? null : DateFormat.Hm().format(_time!);
 
@@ -798,61 +740,6 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
             ],
           ),
 
-        Consumer<AppSettings>(
-          builder: (context, settings, _) {
-            final currentLanguage =
-                settings.locale.languageCode == 'ar' ? t.arabic : t.english;
-            return Card(
-              child: Padding(
-                padding: const EdgeInsets.all(16),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      t.language_settings_title,
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      '${t.language}: $currentLanguage',
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      t.language_settings_hint,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
-                    const SizedBox(height: 16),
-                    Wrap(
-                      spacing: 12,
-                      children: [
-                        ChoiceChip(
-                          label: Text(t.arabic),
-                          selected:
-                              settings.locale.languageCode.toLowerCase() == 'ar',
-                          onSelected: (v) {
-                            if (v) settings.setLocale(const Locale('ar'));
-                          },
-                        ),
-                        ChoiceChip(
-                          label: Text(t.english),
-                          selected:
-                              settings.locale.languageCode.toLowerCase() == 'en',
-                          onSelected: (v) {
-                            if (v) settings.setLocale(const Locale('en'));
-                          },
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
-
-        const SizedBox(height: 12),
-
         Card(
           child: Padding(
             padding: const EdgeInsets.all(16),
@@ -865,7 +752,7 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                     const SizedBox(width: 16),
                     Expanded(
                       child: Text(
-                        _checkedIn ? t.checked_in : t.checked_out,
+                        _checkedIn ? "تم تسجيل الحضور" : "تم تسجيل الانصراف",
                         style: Theme.of(context).textTheme.titleLarge,
                       ),
                     ),
@@ -899,7 +786,7 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.login),
-                label: Text(t.check_in),
+                label: const Text("تسجيل الحضور"),
                 onPressed: (_checkedIn || _loading || _locationId == null) ? null : () => _handleAction("check_in"),
               ),
             ),
@@ -907,7 +794,7 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
             Expanded(
               child: ElevatedButton.icon(
                 icon: const Icon(Icons.logout),
-                label: Text(t.check_out),
+                label: const Text("تسجيل الانصراف"),
                 onPressed: (!_checkedIn || _loading || _locationId == null) ? null : () => _handleAction("check_out"),
               ),
             ),
