@@ -201,12 +201,30 @@ class ApiService {
   static Future<Map<String, dynamic>> guardLogin(
       String username,
       String password,
-      ) async {
+      {
+        required String deviceId,
+        required String deviceName,
+        String? challengeId,
+        String? otpCode,
+      }) async {
     try {
+      final payload = <String, dynamic>{
+        'username': username,
+        'password': password,
+        'device_id': deviceId,
+        'device_name': deviceName,
+      };
+      if (challengeId != null && challengeId.isNotEmpty) {
+        payload['challenge_id'] = challengeId;
+      }
+      if (otpCode != null && otpCode.isNotEmpty) {
+        payload['otp_code'] = otpCode;
+      }
+
       final res = await _client.post(
         _u(_pLogin),
         headers: _jsonHeaders(),
-        body: jsonEncode({'username': username, 'password': password}),
+        body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 20));
 
       final body = _decode(res);
@@ -246,9 +264,30 @@ class ApiService {
         return {'ok': true, 'employee': empModel};
       }
 
+      if (res.statusCode == 202 && body is Map<String, dynamic>) {
+        return {
+          'ok': false,
+          'requires_verification': true,
+          'challenge_id': body['challenge_id']?.toString(),
+          'message': (body['detail'] ?? 'يتطلب توثيق الجهاز').toString(),
+          'destination': body['destination']?.toString(),
+          'delivery': body['delivery']?.toString(),
+          'debug_code': body['debug_code']?.toString(),
+        };
+      }
+
       // خطأ JSON مفهوم
       if (body is Map<String, dynamic>) {
-        return {'ok': false, 'message': (body['detail'] ?? body['message'] ?? 'تعذّر تسجيل الدخول').toString()};
+        final map = <String, dynamic>{
+          'ok': false,
+          'message': (body['detail'] ?? body['message'] ?? 'تعذّر تسجيل الدخول').toString(),
+        };
+        if (body['code'] != null) map['code'] = body['code'];
+        if (body['requires_verification'] == true) {
+          map['requires_verification'] = true;
+          map['challenge_id'] = body['challenge_id']?.toString();
+        }
+        return map;
       }
 
       // محتوى غير JSON

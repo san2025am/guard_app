@@ -5,12 +5,73 @@
   "theme_dark": "Dark",
   "toggle_theme": "Toggle Theme",
   "language": "Language",
+  "language_settings_title": "Language preferences",
+  "language_settings_hint": "Choose your preferred language below",
   "arabic": "Arabic",
   "english": "English",
+  "session_timeout_title": "Session timeout",
+  "session_timeout_message": "No activity detected. You will be logged out in {seconds} seconds.",
+  "@session_timeout_message": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "session_timeout_keep": "Keep working",
+  "session_timeout_logout": "Logout now",
   "login": "Login",
   "username": "Username",
   "password": "Password",
   "forgot_password": "Forgot password?",
+  "device_untrusted_title": "Unregistered Device",
+  "device_untrusted_message": "Dear user, this device is not trusted yet. If you want to continue, you need to add it to your trusted devices list.",
+  "device_untrusted_accept": "Yes",
+  "device_untrusted_decline": "No",
+  "device_otp_instructions": "Enter the verification code sent to {destination}.",
+  "@device_otp_instructions": {
+    "placeholders": {
+      "destination": {}
+    }
+  },
+  "device_otp_label": "Verification code",
+  "device_otp_confirm": "Verify device",
+  "device_otp_destination_email": "your email",
+  "device_verification_cancelled": "Device verification cancelled",
+  "device_verification_required": "Device verification is required to complete the login.",
+  "biometric_login_button": "Log in with {method}",
+  "@biometric_login_button": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_auth_reason": "Confirm your identity using {method}.",
+  "@biometric_auth_reason": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_enable_title": "Enable biometric login?",
+  "biometric_enable_message": "Would you like to use {method} for faster logins?",
+  "@biometric_enable_message": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_enable_confirm": "Enable",
+  "biometric_enable_skip": "Not now",
+  "biometric_enabled_confirmation": "Biometric login with {method} has been enabled.",
+  "@biometric_enabled_confirmation": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_not_configured": "Biometric login is not configured yet.",
+  "biometric_auth_failed": "Biometric authentication failed.",
+  "biometric_method_face": "Face ID",
+  "biometric_method_fingerprint": "Fingerprint",
+  "biometric_method_iris": "Iris",
+  "biometric_method_generic": "Biometric",
   "send_code": "Send code to email",
   "reset_password": "Reset password",
   "code": "Code (6 digits)",
@@ -101,6 +162,8 @@
     "request_approval_notes": "Decision notes",
     "request_approver": "Handled by",
     "coming_soon": "Coming soon",
+    "request_leave": "Leave request",
+    "request_leave_hint": "Submit a leave request to your supervisor",
     "logout": "Logout",
      "logoutTooltip": "Sign out of the account"
   }

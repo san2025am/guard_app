@@ -128,6 +128,18 @@ abstract class AppLocalizations {
   /// **'Language'**
   String get language;
 
+  /// No description provided for @language_settings_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Language preferences'**
+  String get language_settings_title;
+
+  /// No description provided for @language_settings_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose your preferred language below'**
+  String get language_settings_hint;
+
   /// No description provided for @arabic.
   ///
   /// In en, this message translates to:
@@ -139,6 +151,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'English'**
   String get english;
+
+  /// No description provided for @session_timeout_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Session timeout'**
+  String get session_timeout_title;
+
+  /// No description provided for @session_timeout_message.
+  ///
+  /// In en, this message translates to:
+  /// **'No activity detected. You will be logged out in {seconds} seconds.'**
+  String session_timeout_message(int seconds);
+
+  /// No description provided for @session_timeout_keep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep working'**
+  String get session_timeout_keep;
+
+  /// No description provided for @session_timeout_logout.
+  ///
+  /// In en, this message translates to:
+  /// **'Logout now'**
+  String get session_timeout_logout;
 
   /// No description provided for @login.
   ///
@@ -163,6 +199,144 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Forgot password?'**
   String get forgot_password;
+
+  /// No description provided for @device_untrusted_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Unregistered Device'**
+  String get device_untrusted_title;
+
+  /// No description provided for @device_untrusted_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Dear user, this device is not trusted yet. If you want to continue, you need to add it to your trusted devices list.'**
+  String get device_untrusted_message;
+
+  /// No description provided for @device_untrusted_accept.
+  ///
+  /// In en, this message translates to:
+  /// **'Yes'**
+  String get device_untrusted_accept;
+
+  /// No description provided for @device_untrusted_decline.
+  ///
+  /// In en, this message translates to:
+  /// **'No'**
+  String get device_untrusted_decline;
+
+  /// No description provided for @device_otp_instructions.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the verification code sent to {destination}.'**
+  String device_otp_instructions(Object destination);
+
+  /// No description provided for @device_otp_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Verification code'**
+  String get device_otp_label;
+
+  /// No description provided for @device_otp_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Verify device'**
+  String get device_otp_confirm;
+
+  /// No description provided for @device_otp_destination_email.
+  ///
+  /// In en, this message translates to:
+  /// **'your email'**
+  String get device_otp_destination_email;
+
+  /// No description provided for @device_verification_cancelled.
+  ///
+  /// In en, this message translates to:
+  /// **'Device verification cancelled'**
+  String get device_verification_cancelled;
+
+  /// No description provided for @device_verification_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Device verification is required to complete the login.'**
+  String get device_verification_required;
+
+  /// No description provided for @biometric_login_button.
+  ///
+  /// In en, this message translates to:
+  /// **'Log in with {method}'**
+  String biometric_login_button(Object method);
+
+  /// No description provided for @biometric_auth_reason.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm your identity using {method}.'**
+  String biometric_auth_reason(Object method);
+
+  /// No description provided for @biometric_enable_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable biometric login?'**
+  String get biometric_enable_title;
+
+  /// No description provided for @biometric_enable_message.
+  ///
+  /// In en, this message translates to:
+  /// **'Would you like to use {method} for faster logins?'**
+  String biometric_enable_message(Object method);
+
+  /// No description provided for @biometric_enable_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Enable'**
+  String get biometric_enable_confirm;
+
+  /// No description provided for @biometric_enable_skip.
+  ///
+  /// In en, this message translates to:
+  /// **'Not now'**
+  String get biometric_enable_skip;
+
+  /// No description provided for @biometric_enabled_confirmation.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric login with {method} has been enabled.'**
+  String biometric_enabled_confirmation(Object method);
+
+  /// No description provided for @biometric_not_configured.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric login is not configured yet.'**
+  String get biometric_not_configured;
+
+  /// No description provided for @biometric_auth_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric authentication failed.'**
+  String get biometric_auth_failed;
+
+  /// No description provided for @biometric_method_face.
+  ///
+  /// In en, this message translates to:
+  /// **'Face ID'**
+  String get biometric_method_face;
+
+  /// No description provided for @biometric_method_fingerprint.
+  ///
+  /// In en, this message translates to:
+  /// **'Fingerprint'**
+  String get biometric_method_fingerprint;
+
+  /// No description provided for @biometric_method_iris.
+  ///
+  /// In en, this message translates to:
+  /// **'Iris'**
+  String get biometric_method_iris;
+
+  /// No description provided for @biometric_method_generic.
+  ///
+  /// In en, this message translates to:
+  /// **'Biometric'**
+  String get biometric_method_generic;
 
   /// No description provided for @send_code.
   ///
@@ -697,6 +871,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Coming soon'**
   String get coming_soon;
+
+  /// No description provided for @request_leave.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave request'**
+  String get request_leave;
+
+  /// No description provided for @request_leave_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Submit a leave request to your supervisor'**
+  String get request_leave_hint;
 
   /// No description provided for @logout.
   ///

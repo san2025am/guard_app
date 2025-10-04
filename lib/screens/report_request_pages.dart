@@ -60,12 +60,17 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     setState(() => _submitting = false);
 
     if (result.ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(t.report_submit_success)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.report_submit_success)));
       Navigator.of(context).pop(true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message.isNotEmpty ? result.message : t.report_submit_error)),
+        SnackBar(
+          content: Text(
+            result.message.isNotEmpty ? result.message : t.report_submit_error,
+          ),
+        ),
       );
     }
   }
@@ -81,22 +86,26 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
             ListTile(
               leading: const Icon(Icons.photo_camera),
               title: Text(t.report_attachment_image_camera),
-              onTap: () => Navigator.of(context).pop(_AttachmentAction.imageCamera),
+              onTap: () =>
+                  Navigator.of(context).pop(_AttachmentAction.imageCamera),
             ),
             ListTile(
               leading: const Icon(Icons.image_outlined),
               title: Text(t.report_attachment_image_gallery),
-              onTap: () => Navigator.of(context).pop(_AttachmentAction.imageGallery),
+              onTap: () =>
+                  Navigator.of(context).pop(_AttachmentAction.imageGallery),
             ),
             ListTile(
               leading: const Icon(Icons.videocam),
               title: Text(t.report_attachment_video_camera),
-              onTap: () => Navigator.of(context).pop(_AttachmentAction.videoCamera),
+              onTap: () =>
+                  Navigator.of(context).pop(_AttachmentAction.videoCamera),
             ),
             ListTile(
               leading: const Icon(Icons.video_library_outlined),
               title: Text(t.report_attachment_video_gallery),
-              onTap: () => Navigator.of(context).pop(_AttachmentAction.videoGallery),
+              onTap: () =>
+                  Navigator.of(context).pop(_AttachmentAction.videoGallery),
             ),
           ],
         ),
@@ -120,11 +129,17 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
     }
   }
 
-  Future<void> _pickAttachment(ImageSource source, {required bool isVideo}) async {
+  Future<void> _pickAttachment(
+    ImageSource source, {
+    required bool isVideo,
+  }) async {
     try {
       XFile? picked;
       if (isVideo) {
-        picked = await _picker.pickVideo(source: source, maxDuration: const Duration(minutes: 5));
+        picked = await _picker.pickVideo(
+          source: source,
+          maxDuration: const Duration(minutes: 5),
+        );
       } else {
         picked = await _picker.pickImage(
           source: source,
@@ -134,15 +149,15 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       }
       if (picked == null) return;
 
-      final mime = await picked.mimeType ?? _guessMimeType(picked.path, isVideo: isVideo);
+      final mime =
+          await picked.mimeType ??
+          _guessMimeType(picked.path, isVideo: isVideo);
 
       if (!mounted) return;
       setState(() {
-        _attachments.add(_PendingAttachment(
-          file: picked!,
-          mimeType: mime,
-          isVideo: isVideo,
-        ));
+        _attachments.add(
+          _PendingAttachment(file: picked!, mimeType: mime, isVideo: isVideo),
+        );
       });
     } catch (e) {
       if (!mounted) return;
@@ -163,7 +178,8 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
       return 'video/mp4';
     } else {
       if (lower.endsWith('.png')) return 'image/png';
-      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
+      if (lower.endsWith('.jpg') || lower.endsWith('.jpeg'))
+        return 'image/jpeg';
       if (lower.endsWith('.gif')) return 'image/gif';
       if (lower.endsWith('.heic')) return 'image/heic';
       return 'image/jpeg';
@@ -187,10 +203,22 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                 DropdownButtonFormField<String>(
                   value: _selectedType,
                   items: [
-                    DropdownMenuItem(value: 'daily', child: Text(t.report_type_daily)),
-                    DropdownMenuItem(value: 'monthly', child: Text(t.report_type_monthly)),
-                    DropdownMenuItem(value: 'security', child: Text(t.report_type_security)),
-                    DropdownMenuItem(value: 'complaint', child: Text(t.report_type_complaint)),
+                    DropdownMenuItem(
+                      value: 'daily',
+                      child: Text(t.report_type_daily),
+                    ),
+                    DropdownMenuItem(
+                      value: 'monthly',
+                      child: Text(t.report_type_monthly),
+                    ),
+                    DropdownMenuItem(
+                      value: 'security',
+                      child: Text(t.report_type_security),
+                    ),
+                    DropdownMenuItem(
+                      value: 'complaint',
+                      child: Text(t.report_type_complaint),
+                    ),
                   ],
                   decoration: InputDecoration(labelText: t.report_type_label),
                   onChanged: (value) => setState(() => _selectedType = value),
@@ -234,7 +262,9 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
                     children: List.generate(_attachments.length, (index) {
                       final attachment = _attachments[index];
                       return InputChip(
-                        avatar: Icon(attachment.isVideo ? Icons.videocam : Icons.image),
+                        avatar: Icon(
+                          attachment.isVideo ? Icons.videocam : Icons.image,
+                        ),
                         label: Text(attachment.displayName),
                         onDeleted: _submitting
                             ? null
@@ -266,12 +296,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
   }
 }
 
-enum _AttachmentAction {
-  imageCamera,
-  imageGallery,
-  videoCamera,
-  videoGallery,
-}
+enum _AttachmentAction { imageCamera, imageGallery, videoCamera, videoGallery }
 
 class _PendingAttachment {
   _PendingAttachment({
@@ -284,11 +309,14 @@ class _PendingAttachment {
   final String? mimeType;
   final bool isVideo;
 
-  String get displayName => file.name.isNotEmpty ? file.name : file.path.split('/').last;
+  String get displayName =>
+      file.name.isNotEmpty ? file.name : file.path.split('/').last;
 }
 
 class CreateRequestScreen extends StatefulWidget {
-  const CreateRequestScreen({super.key});
+  const CreateRequestScreen({super.key, this.initialType});
+
+  final String? initialType;
 
   @override
   State<CreateRequestScreen> createState() => _CreateRequestScreenState();
@@ -301,6 +329,12 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   bool _submitting = false;
   DateTime? _leaveStart;
   DateTime? _leaveEnd;
+
+  @override
+  void initState() {
+    super.initState();
+    _requestType = widget.initialType;
+  }
 
   @override
   void dispose() {
@@ -318,13 +352,15 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
 
     if (_isLeaveType) {
       if (_leaveStart == null || _leaveEnd == null) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(t.leave_pick_dates_required)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t.leave_pick_dates_required)));
         return;
       }
       if (!_leaveEnd!.isAfter(_leaveStart!)) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(t.leave_end_must_follow_start)));
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text(t.leave_end_must_follow_start)));
         return;
       }
     }
@@ -343,12 +379,17 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     setState(() => _submitting = false);
 
     if (result.ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(t.request_submit_success)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.request_submit_success)));
       Navigator.of(context).pop(true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message.isNotEmpty ? result.message : t.request_submit_error)),
+        SnackBar(
+          content: Text(
+            result.message.isNotEmpty ? result.message : t.request_submit_error,
+          ),
+        ),
       );
     }
   }
@@ -371,10 +412,22 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                   value: _requestType,
                   decoration: InputDecoration(labelText: t.request_type),
                   items: [
-                    DropdownMenuItem(value: 'coverage', child: Text(t.request_type_coverage)),
-                    DropdownMenuItem(value: 'leave', child: Text(t.request_type_leave)),
-                    DropdownMenuItem(value: 'transfer', child: Text(t.request_type_transfer)),
-                    DropdownMenuItem(value: 'materials', child: Text(t.request_type_materials)),
+                    DropdownMenuItem(
+                      value: 'coverage',
+                      child: Text(t.request_type_coverage),
+                    ),
+                    DropdownMenuItem(
+                      value: 'leave',
+                      child: Text(t.request_type_leave),
+                    ),
+                    DropdownMenuItem(
+                      value: 'transfer',
+                      child: Text(t.request_type_transfer),
+                    ),
+                    DropdownMenuItem(
+                      value: 'materials',
+                      child: Text(t.request_type_materials),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -403,9 +456,12 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                           subtitle: Text(
                             _leaveStart == null
                                 ? t.leave_start_not_selected
-                                : (_formatDateTime(_leaveStart!) ?? t.leave_start_not_selected),
+                                : (_formatDateTime(_leaveStart!) ??
+                                      t.leave_start_not_selected),
                           ),
-                          onTap: _submitting ? null : () => _pickLeaveDateTime(isStart: true),
+                          onTap: _submitting
+                              ? null
+                              : () => _pickLeaveDateTime(isStart: true),
                         ),
                         const Divider(height: 0),
                         ListTile(
@@ -414,9 +470,12 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                           subtitle: Text(
                             _leaveEnd == null
                                 ? t.leave_end_not_selected
-                                : (_formatDateTime(_leaveEnd!) ?? t.leave_end_not_selected),
+                                : (_formatDateTime(_leaveEnd!) ??
+                                      t.leave_end_not_selected),
                           ),
-                          onTap: _submitting ? null : () => _pickLeaveDateTime(isStart: false),
+                          onTap: _submitting
+                              ? null
+                              : () => _pickLeaveDateTime(isStart: false),
                         ),
                       ],
                     ),
@@ -460,7 +519,9 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
 
   Future<void> _pickLeaveDateTime({required bool isStart}) async {
     final now = DateTime.now();
-    final initial = isStart ? (_leaveStart ?? now) : (_leaveEnd ?? _leaveStart ?? now);
+    final initial = isStart
+        ? (_leaveStart ?? now)
+        : (_leaveEnd ?? _leaveStart ?? now);
     final date = await showDatePicker(
       context: context,
       initialDate: initial,
@@ -475,7 +536,13 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
     );
     if (time == null) return;
 
-    final combined = DateTime(date.year, date.month, date.day, time.hour, time.minute);
+    final combined = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
 
     setState(() {
       if (isStart) {
@@ -536,12 +603,17 @@ class _CreateAdvanceScreenState extends State<CreateAdvanceScreen> {
     setState(() => _submitting = false);
 
     if (result.ok) {
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(t.advance_submit_success)));
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(t.advance_submit_success)));
       Navigator.of(context).pop(true);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(result.message.isNotEmpty ? result.message : t.advance_submit_error)),
+        SnackBar(
+          content: Text(
+            result.message.isNotEmpty ? result.message : t.advance_submit_error,
+          ),
+        ),
       );
     }
   }
@@ -562,7 +634,9 @@ class _CreateAdvanceScreenState extends State<CreateAdvanceScreen> {
               children: [
                 TextFormField(
                   controller: _amountController,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  keyboardType: const TextInputType.numberWithOptions(
+                    decimal: true,
+                  ),
                   decoration: InputDecoration(labelText: t.advance_amount),
                   validator: (value) {
                     final parsed = double.tryParse((value ?? '').trim());
@@ -656,13 +730,17 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
 
   Color _statusColor(ThemeData theme, GuardRequest request) {
     final value = request.status.toLowerCase();
-    if (value.contains('approved') || value.contains('accepted') || value.contains('done')) {
+    if (value.contains('approved') ||
+        value.contains('accepted') ||
+        value.contains('done')) {
       return theme.colorScheme.primary;
     }
     if (value.contains('rejected') || value.contains('cancel')) {
       return theme.colorScheme.error;
     }
-    if (value.contains('pending') || value.contains('open') || value.contains('waiting')) {
+    if (value.contains('pending') ||
+        value.contains('open') ||
+        value.contains('waiting')) {
       return theme.colorScheme.tertiary;
     }
     return theme.colorScheme.secondary;
@@ -695,7 +773,10 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(t.requests_load_error, style: theme.textTheme.titleMedium),
+                            Text(
+                              t.requests_load_error,
+                              style: theme.textTheme.titleMedium,
+                            ),
                             const SizedBox(height: 8),
                             Text(snapshot.error.toString()),
                             const SizedBox(height: 12),
@@ -737,7 +818,10 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                   final request = requests[index];
                   return Card(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -752,8 +836,15 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                               ),
                               const SizedBox(width: 12),
                               Chip(
-                                label: Text(request.statusDisplay.isEmpty ? '-' : request.statusDisplay),
-                                backgroundColor: _statusColor(theme, request).withOpacity(0.12),
+                                label: Text(
+                                  request.statusDisplay.isEmpty
+                                      ? '-'
+                                      : request.statusDisplay,
+                                ),
+                                backgroundColor: _statusColor(
+                                  theme,
+                                  request,
+                                ).withOpacity(0.12),
                                 labelStyle: theme.textTheme.bodySmall?.copyWith(
                                   color: _statusColor(theme, request),
                                   fontWeight: FontWeight.w600,
@@ -763,14 +854,25 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                           ),
                           const SizedBox(height: 8),
                           if (request.requestTypeDisplay.isNotEmpty)
-                            Text('${t.request_type}: ${request.requestTypeDisplay}'),
-                          if (request.requestType == 'leave' && request.formattedLeaveRange != null)
-                            Text('${t.leave_range}: ${request.formattedLeaveRange}'),
-                          if (request.requestType == 'leave' && request.leaveHours?.isNotEmpty == true)
-                            Text('${t.leave_hours_label}: ${request.leaveHours}'),
+                            Text(
+                              '${t.request_type}: ${request.requestTypeDisplay}',
+                            ),
+                          if (request.requestType == 'leave' &&
+                              request.formattedLeaveRange != null)
+                            Text(
+                              '${t.leave_range}: ${request.formattedLeaveRange}',
+                            ),
+                          if (request.requestType == 'leave' &&
+                              request.leaveHours?.isNotEmpty == true)
+                            Text(
+                              '${t.leave_hours_label}: ${request.leaveHours}',
+                            ),
                           if (request.formattedDate != null)
-                            Text('${t.request_submitted_on}: ${request.formattedDate}'),
-                          if (request.description != null && request.description!.isNotEmpty)
+                            Text(
+                              '${t.request_submitted_on}: ${request.formattedDate}',
+                            ),
+                          if (request.description != null &&
+                              request.description!.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
@@ -778,7 +880,8 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                                 style: theme.textTheme.bodyMedium,
                               ),
                             ),
-                          if (request.approvalNotes != null && request.approvalNotes!.isNotEmpty)
+                          if (request.approvalNotes != null &&
+                              request.approvalNotes!.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(
@@ -786,7 +889,8 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                                 style: theme.textTheme.bodySmall,
                               ),
                             ),
-                          if (request.approverName != null && request.approverName!.isNotEmpty)
+                          if (request.approverName != null &&
+                              request.approverName!.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
                               child: Text(
@@ -873,8 +977,9 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
           if (created == true) {
             await _refresh();
             if (!mounted) return;
-            ScaffoldMessenger.of(context)
-                .showSnackBar(SnackBar(content: Text(t.advance_submit_success)));
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text(t.advance_submit_success)));
           }
         },
         icon: const Icon(Icons.add),
@@ -900,7 +1005,10 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(t.advances_load_error, style: theme.textTheme.titleMedium),
+                            Text(
+                              t.advances_load_error,
+                              style: theme.textTheme.titleMedium,
+                            ),
                             const SizedBox(height: 8),
                             Text(snapshot.error.toString()),
                             const SizedBox(height: 12),
@@ -934,7 +1042,10 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                 );
               }
 
-              final currency = NumberFormat.currency(symbol: t.currency_short_symbol, decimalDigits: 2);
+              final currency = NumberFormat.currency(
+                symbol: t.currency_short_symbol,
+                decimalDigits: 2,
+              );
 
               return ListView.separated(
                 padding: const EdgeInsets.all(16),
@@ -945,7 +1056,10 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                   final amountText = currency.format(advance.amount);
                   return Card(
                     child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -960,12 +1074,19 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                               ),
                               const SizedBox(width: 12),
                               Chip(
-                                label: Text(advance.statusDisplay.isEmpty ? '-' : advance.statusDisplay),
-                                labelStyle: theme.textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
+                                label: Text(
+                                  advance.statusDisplay.isEmpty
+                                      ? '-'
+                                      : advance.statusDisplay,
+                                ),
+                                labelStyle: theme.textTheme.bodySmall?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
                             ],
                           ),
-                          if (advance.reason != null && advance.reason!.isNotEmpty)
+                          if (advance.reason != null &&
+                              advance.reason!.isNotEmpty)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
                               child: Text(advance.reason!),
@@ -973,12 +1094,16 @@ class _AdvancesScreenState extends State<AdvancesScreen> {
                           if (advance.formattedRequestedAt != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 8),
-                              child: Text('${t.advance_requested_on}: ${advance.formattedRequestedAt}'),
+                              child: Text(
+                                '${t.advance_requested_on}: ${advance.formattedRequestedAt}',
+                              ),
                             ),
                           if (advance.formattedApprovedAt != null)
                             Padding(
                               padding: const EdgeInsets.only(top: 4),
-                              child: Text('${t.advance_approved_on}: ${advance.formattedApprovedAt}'),
+                              child: Text(
+                                '${t.advance_approved_on}: ${advance.formattedApprovedAt}',
+                              ),
                             ),
                         ],
                       ),

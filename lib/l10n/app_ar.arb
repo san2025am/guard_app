@@ -5,12 +5,73 @@
   "theme_dark": "ليلي",
   "toggle_theme": "تبديل الثيم",
   "language": "اللغة",
+  "language_settings_title": "إعدادات اللغة",
+  "language_settings_hint": "اختر لغتك المفضلة من الخيارات أدناه",
   "arabic": "العربية",
   "english": "الإنجليزية",
+  "session_timeout_title": "انتهاء الجلسة",
+  "session_timeout_message": "لم يتم رصد أي نشاط. سيتم تسجيل الخروج خلال {seconds} ثانية.",
+  "@session_timeout_message": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "session_timeout_keep": "متابعة الاستخدام",
+  "session_timeout_logout": "تسجيل الخروج الآن",
   "login": "تسجيل الدخول",
   "username": "اسم المستخدم",
   "password": "كلمة المرور",
   "forgot_password": "نسيت كلمة المرور؟",
+  "device_untrusted_title": "متصفح غير مسجل",
+  "device_untrusted_message": "عزيزي العميل، هذا الجهاز غير موثوق. إذا كنت ترغب في استخدامه، يمكنك إضافته إلى قائمة أجهزتك الموثوقة.",
+  "device_untrusted_accept": "نعم",
+  "device_untrusted_decline": "لا",
+  "device_otp_instructions": "أدخل رمز التحقق المرسل إلى {destination}.",
+  "@device_otp_instructions": {
+    "placeholders": {
+      "destination": {}
+    }
+  },
+  "device_otp_label": "رمز التحقق",
+  "device_otp_confirm": "توثيق الجهاز",
+  "device_otp_destination_email": "بريدك الإلكتروني",
+  "device_verification_cancelled": "تم إلغاء توثيق الجهاز",
+  "device_verification_required": "يجب توثيق الجهاز لإكمال تسجيل الدخول.",
+  "biometric_login_button": "تسجيل الدخول باستخدام {method}",
+  "@biometric_login_button": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_auth_reason": "يرجى تأكيد هويتك باستخدام {method}.",
+  "@biometric_auth_reason": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_enable_title": "تفعيل تسجيل الدخول بالبصمة؟",
+  "biometric_enable_message": "هل تود استخدام {method} لتسجيل الدخول بشكل أسرع؟",
+  "@biometric_enable_message": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_enable_confirm": "تفعيل",
+  "biometric_enable_skip": "لاحقاً",
+  "biometric_enabled_confirmation": "تم تفعيل تسجيل الدخول بواسطة {method}.",
+  "@biometric_enabled_confirmation": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_not_configured": "لم يتم إعداد تسجيل الدخول بالبصمة بعد.",
+  "biometric_auth_failed": "فشل التحقق الحيوي.",
+  "biometric_method_face": "بصمة الوجه",
+  "biometric_method_fingerprint": "بصمة الإصبع",
+  "biometric_method_iris": "بصمة العين",
+  "biometric_method_generic": "البصمة الحيوية",
   "send_code": "إرسال الرمز للبريد",
   "reset_password": "استعادة كلمة المرور",
   "code": "الرمز (6 أرقام)",
@@ -100,6 +161,8 @@
     "request_approval_notes": "ملاحظات القرار",
     "request_approver": "تمت المعالجة بواسطة",
     "coming_soon": "قريبًا",
+    "request_leave": "طلب إجازة",
+    "request_leave_hint": "قدّم طلب إجازة إلى المشرف",
       "logout": "تسجيل الخروج",
       "logoutTooltip": "خروج من الحساب"
 

@@ -24,10 +24,30 @@ class AppLocalizationsAr extends AppLocalizations {
   String get language => 'اللغة';
 
   @override
+  String get language_settings_title => 'إعدادات اللغة';
+
+  @override
+  String get language_settings_hint => 'اختر لغتك المفضلة من الخيارات أدناه';
+
+  @override
   String get arabic => 'العربية';
 
   @override
   String get english => 'الإنجليزية';
+
+  @override
+  String get session_timeout_title => 'انتهاء الجلسة';
+
+  @override
+  String session_timeout_message(int seconds) {
+    return 'لم يتم رصد أي نشاط. سيتم تسجيل الخروج خلال $seconds ثانية.';
+  }
+
+  @override
+  String get session_timeout_keep => 'متابعة الاستخدام';
+
+  @override
+  String get session_timeout_logout => 'تسجيل الخروج الآن';
 
   @override
   String get login => 'تسجيل الدخول';
@@ -40,6 +60,88 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get forgot_password => 'نسيت كلمة المرور؟';
+
+  @override
+  String get device_untrusted_title => 'متصفح غير مسجل';
+
+  @override
+  String get device_untrusted_message =>
+      'عزيزي العميل، هذا الجهاز غير موثوق. إذا كنت ترغب في استخدامه، يمكنك إضافته إلى قائمة أجهزتك الموثوقة.';
+
+  @override
+  String get device_untrusted_accept => 'نعم';
+
+  @override
+  String get device_untrusted_decline => 'لا';
+
+  @override
+  String device_otp_instructions(Object destination) {
+    return 'أدخل رمز التحقق المرسل إلى $destination.';
+  }
+
+  @override
+  String get device_otp_label => 'رمز التحقق';
+
+  @override
+  String get device_otp_confirm => 'توثيق الجهاز';
+
+  @override
+  String get device_otp_destination_email => 'بريدك الإلكتروني';
+
+  @override
+  String get device_verification_cancelled => 'تم إلغاء توثيق الجهاز';
+
+  @override
+  String get device_verification_required =>
+      'يجب توثيق الجهاز لإكمال تسجيل الدخول.';
+
+  @override
+  String biometric_login_button(Object method) {
+    return 'تسجيل الدخول باستخدام $method';
+  }
+
+  @override
+  String biometric_auth_reason(Object method) {
+    return 'يرجى تأكيد هويتك باستخدام $method.';
+  }
+
+  @override
+  String get biometric_enable_title => 'تفعيل تسجيل الدخول بالبصمة؟';
+
+  @override
+  String biometric_enable_message(Object method) {
+    return 'هل تود استخدام $method لتسجيل الدخول بشكل أسرع؟';
+  }
+
+  @override
+  String get biometric_enable_confirm => 'تفعيل';
+
+  @override
+  String get biometric_enable_skip => 'لاحقاً';
+
+  @override
+  String biometric_enabled_confirmation(Object method) {
+    return 'تم تفعيل تسجيل الدخول بواسطة $method.';
+  }
+
+  @override
+  String get biometric_not_configured =>
+      'لم يتم إعداد تسجيل الدخول بالبصمة بعد.';
+
+  @override
+  String get biometric_auth_failed => 'فشل التحقق الحيوي.';
+
+  @override
+  String get biometric_method_face => 'بصمة الوجه';
+
+  @override
+  String get biometric_method_fingerprint => 'بصمة الإصبع';
+
+  @override
+  String get biometric_method_iris => 'بصمة العين';
+
+  @override
+  String get biometric_method_generic => 'البصمة الحيوية';
 
   @override
   String get send_code => 'إرسال الرمز للبريد';
@@ -308,6 +410,12 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get coming_soon => 'قريبًا';
+
+  @override
+  String get request_leave => 'طلب إجازة';
+
+  @override
+  String get request_leave_hint => 'قدّم طلب إجازة إلى المشرف';
 
   @override
   String get logout => 'تسجيل الخروج';

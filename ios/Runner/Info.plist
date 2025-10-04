@@ -49,6 +49,8 @@
     <string>نحتاج للوصول إلى موقعك لتسجيل الحضور والانصراف.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>نحتاج للوصول إلى موقعك لتسجيل الحضور والانصراف.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>نستخدم Face ID لتسجيل الدخول بشكل آمن.</string>
 
 </dict>
 </plist>

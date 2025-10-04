@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -20,9 +21,11 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
+  static const String _kLastAttendanceStateKey = 'attendance_last_state';
   bool _checkedIn = false;
   DateTime? _time;
   bool _loading = false;
+  String? _lastAction; // آخر إجراء تم تسجيله (check_in / check_out / early_check_out)
 
   String? _locationId;      // UUID نص
   String? _locationName;    // اسم الموقع
@@ -31,11 +34,10 @@ class _AttendancePageState extends State<AttendancePage> {
   Map<String, dynamic>? _lastData;
 
   // قائمة المواقع المتاحة للحارس (لمعرّفات وأسماء وعملاء) لاختيارها يدويًا
-  List<dynamic> _locations = [];
-
   // عرض حالة “غير مقيّدة” + تلميح نصي
   bool _unrestricted = false;
   String? _shiftHint; // نص موجز عن النافذة/السماحات
+  String? _locationsSummary;
 
   @override
   void initState() {
@@ -43,7 +45,7 @@ class _AttendancePageState extends State<AttendancePage> {
     _bootstrap();
   }
 
-  Future<void> _bootstrap() async {
+  Future<void> _bootstrap({bool forceEmployeeRefresh = false}) async {
     final token = await ApiService.getAccessToken();
     if (!mounted) return;
     if (token == null || token.isEmpty) {
@@ -55,35 +57,15 @@ class _AttendancePageState extends State<AttendancePage> {
     await _checkCurrentAttendanceStatus();
 
     // من الكاش
-    final emp = await ApiService.ensureEmployeeCached();
+    final emp = forceEmployeeRefresh
+        ? await ApiService.refreshEmployeeCache() ?? await ApiService.ensureEmployeeCached()
+        : await ApiService.ensureEmployeeCached();
     if (emp != null && emp.locations != null && emp.locations!.isNotEmpty) {
       // استخدم أول موقع مخصّص للحارس لتعبئة الاسم والمعرّف واسم العميل إن وجد
       final firstLoc = emp.locations!.first;
       setState(() {
         _locationId = firstLoc.id?.toString();
         _locationName = firstLoc.name;
-        // خزّن كل المواقع المتاحة لاستخدامها في اختيار يدوي لاحقًا
-        try {
-          final locs = emp.locations;
-          if (locs != null) {
-            // إزالة العناصر المكررة وفقًا للمعرّف لتجنب ظهور عناصر ذات نفس القيمة في DropdownButton
-            final List<dynamic> uniques = [];
-            final Set<String> seenIds = {};
-            for (final loc in locs) {
-              try {
-                final dyn = loc as dynamic;
-                final id = (dyn.id ?? dyn['id']).toString();
-                if (!seenIds.contains(id)) {
-                  seenIds.add(id);
-                  uniques.add(loc);
-                }
-              } catch (_) {
-                // عند الخطأ نتجاهل هذا الموقع
-              }
-            }
-            _locations = uniques;
-          }
-        } catch (_) {}
         try {
           final dyn = firstLoc as dynamic;
           final cName = (dyn.client_name ?? dyn.clientName);
@@ -91,6 +73,7 @@ class _AttendancePageState extends State<AttendancePage> {
             _clientName = cName.toString();
           }
         } catch (_) {}
+        _locationsSummary = _composeLocationsSummary(emp.locations);
       });
       await _loadUnrestrictedFromCache();
 
@@ -114,6 +97,9 @@ class _AttendancePageState extends State<AttendancePage> {
         }
       } catch (_) {}
     } else {
+      setState(() {
+        _locationsSummary = null;
+      });
       // تحديد تلقائي عبر الإحداثيات
       try {
         final pos = await getBestFix();
@@ -193,11 +179,78 @@ class _AttendancePageState extends State<AttendancePage> {
   }
 
   Future<void> _checkCurrentAttendanceStatus() async {
-    // حتى الآن: نفترض لا يوجد سجل مفتوح
-    setState(() {
-      _checkedIn = false;
-      _time = null;
-    });
+    try {
+      final sp = await SharedPreferences.getInstance();
+      final raw = sp.getString(_kLastAttendanceStateKey);
+      if (raw == null || raw.isEmpty) {
+        if (!mounted) return;
+      setState(() {
+        _checkedIn = false;
+        _lastAction = null;
+        _time = null;
+        _lastServerMessage = null;
+        _lastData = null;
+        _locationsSummary = null;
+      });
+      return;
+    }
+
+    final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        if (!mounted) return;
+        setState(() {
+          _checkedIn = false;
+          _lastAction = null;
+          _time = null;
+          _lastServerMessage = null;
+          _lastData = null;
+        });
+        return;
+      }
+
+      final map = Map<String, dynamic>.from(decoded as Map);
+      final rawAction = map['action']?.toString();
+      final action = _normalizeAction(rawAction) ?? rawAction;
+      final isoTime = map['time']?.toString();
+      DateTime? parsedTime;
+      if (isoTime != null && isoTime.isNotEmpty) {
+        try {
+          parsedTime = DateTime.parse(isoTime).toLocal();
+        } catch (_) {}
+      }
+
+      Map<String, dynamic>? cachedData;
+      final dataRaw = map['data'];
+      if (dataRaw is Map) {
+        cachedData = Map<String, dynamic>.from(dataRaw as Map);
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _lastAction = action;
+        _checkedIn = action == 'check_in';
+        _time = parsedTime;
+        _lastServerMessage = map['message']?.toString();
+        final locName = map['location_name']?.toString();
+        if (locName != null && locName.isNotEmpty) {
+          _locationName = locName;
+        }
+        final clientName = map['client_name']?.toString();
+        if (clientName != null && clientName.isNotEmpty) {
+          _clientName = clientName;
+        }
+        _lastData = cachedData;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _checkedIn = false;
+        _lastAction = null;
+        _time = null;
+        _lastServerMessage = null;
+        _lastData = null;
+      });
+    }
   }
 
   void _toast(String message) {
@@ -274,27 +327,25 @@ class _AttendancePageState extends State<AttendancePage> {
         accuracy: pos.accuracy,
       );
 
-      String? locId;
-      if (auto.ok && auto.data != null && auto.data!['location_id'] != null) {
-        locId = auto.data!['location_id']?.toString();
-        // حدّث معلومات الموقع والعميل من الرد
-        setState(() {
-          _locationId = locId;
-          final nm = auto.data!['name']?.toString();
-          if (nm != null && nm.isNotEmpty) _locationName = nm;
-          final cName = auto.data!['client_name']?.toString();
-          if (cName != null && cName.isNotEmpty) _clientName = cName;
-        });
-      }
-
-      // إذا لم نستطع تحديد الموقع تلقائيًا ولا يوجد موقع مخزن مسبقًا، نعرض رسالة وننهي
-      if (locId == null && _locationId == null) {
-        _toast('لم يتم تحديد موقع العمل تلقائيًا: ${auto.message}');
+      if (!(auto.ok && auto.data != null && auto.data!['location_id'] != null)) {
+        final msg = auto.message.trim();
+        _toast(msg.isNotEmpty
+            ? 'تعذر تحديد موقع العمل تلقائيًا: $msg'
+            : 'تعذر تحديد موقع العمل تلقائيًا. يرجى الاقتراب من الموقع وإعادة المحاولة.');
         return;
       }
 
-      // اختر المعرف إما من الرد أو من القيمة الحالية
-      final usedLocId = locId ?? _locationId!;
+      final locId = auto.data!['location_id']?.toString();
+      // حدّث معلومات الموقع والعميل من الرد
+      setState(() {
+        _locationId = locId;
+        final nm = auto.data!['name']?.toString();
+        if (nm != null && nm.isNotEmpty) _locationName = nm;
+        final cName = auto.data!['client_name']?.toString();
+        if (cName != null && cName.isNotEmpty) _clientName = cName;
+      });
+
+      final usedLocId = locId!;
 
       final res = await sendAttendanceWithPosition(
         baseUrl: kBaseUrl,
@@ -307,14 +358,23 @@ class _AttendancePageState extends State<AttendancePage> {
       );
 
       if (res.ok) {
+        final data = res.data;
+        final responseAction = data?['action']?.toString();
+        final canonicalAction =
+            _normalizeAction(responseAction) ?? _normalizeAction(action) ?? action;
+        final recordedRaw = data?['recorded_at'] ??
+            data?['timestamp'] ??
+            data?['time'] ??
+            data?['checked_at'];
+        final recordedAt = _tryParseDateTime(recordedRaw);
         setState(() {
-          _checkedIn = (action == 'check_in');
-          _time = DateTime.now();
+          _checkedIn = (canonicalAction == 'check_in');
+          _lastAction = canonicalAction;
+          _time = recordedAt ?? DateTime.now();
           _lastServerMessage = res.message;
-          _lastData = res.data;
+          _lastData = data;
 
           // حدّث معلومات الموقع من الرد الرئيسي أيضًا
-          final data = res.data;
           if (data != null) {
             final locName = data['location_name']?.toString();
             if (locName != null && locName.isNotEmpty) {
@@ -326,6 +386,12 @@ class _AttendancePageState extends State<AttendancePage> {
             }
           }
         });
+        await _persistLastAttendanceState(
+          action: canonicalAction,
+          timestamp: _time ?? DateTime.now(),
+          message: res.message,
+          data: data,
+        );
       } else {
         _toast(res.message);
       }
@@ -422,207 +488,249 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final timeStr = _time == null ? null : DateFormat.Hm().format(_time!);
+    final statusKey = _normalizeAction(_lastAction) ?? (_checkedIn ? 'check_in' : null);
+    final statusText = _statusLabelFor(statusKey);
+    final statusIcon = _statusIconFor(statusKey);
+    final timeStr = (statusKey == null || _time == null) ? null : DateFormat.Hm().format(_time!);
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (_unrestricted)
-          Card(
-            color: cs.secondaryContainer,
-            child: ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('وردية غير مقيّدة'),
-              subtitle: const Text('يمكنك تسجيل الحضور أو الانصراف في أي وقت.'),
-            ),
-          ),
-
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(_checkedIn ? Icons.login : Icons.logout, size: 36, color: cs.primary),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        _checkedIn ? "تم تسجيل الحضور" : "تم تسجيل الانصراف",
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    if (timeStr != null) Text(timeStr),
-                  ],
-                ),
-                if (_locationName != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text('الموقع: $_locationName',
-                        style: Theme.of(context).textTheme.titleSmall),
-                  ),
-                // عرض اسم العميل المرتبط بالموقع إن وجد
-                if (_clientName != null && _clientName!.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text('العميل: $_clientName',
-                        style: Theme.of(context).textTheme.titleSmall),
-                  ),
-                // اختيار الموقع يدويًا من قائمة المواقع المتاحة
-                // تم إيقاف الاختيار اليدوي ليكون التحديد تلقائيًا دومًا
-                if (false && _locations.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Builder(
-                      builder: (context) {
-                        // حدد القيمة المختارة فقط إذا كانت موجودة ضمن العناصر
-                        String? selectedValue = _locationId;
-                        if (_locationId != null) {
-                          bool exists = false;
-                          for (final loc in _locations) {
-                            try {
-                              final dyn = loc as dynamic;
-                              final id  = (dyn.id ?? dyn['id']).toString();
-                              if (id == _locationId) {
-                                exists = true;
-                                break;
-                              }
-                            } catch (_) {}
-                          }
-                          if (!exists) selectedValue = null;
-                        }
-                        // بُنية العناصر في القائمة: إزالة أي تكرار بالقيمة نفسها
-                        final Map<String, dynamic> uniqueMap = {};
-                        for (final loc in _locations) {
-                          try {
-                            final dyn = loc as dynamic;
-                            final id = (dyn.id ?? dyn['id']).toString();
-                            uniqueMap[id] = loc;
-                          } catch (_) {
-                            // تجاهل العناصر غير الصالحة
-                          }
-                        }
-                        final List<DropdownMenuItem<String>> items = uniqueMap.entries.map((e) {
-                          final loc = e.value;
-                          try {
-                            final dyn = loc as dynamic;
-                            final name = (dyn.name ?? dyn['name'])?.toString() ?? '';
-                            return DropdownMenuItem<String>(value: e.key, child: Text(name));
-                          } catch (_) {
-                            return const DropdownMenuItem<String>(value: null, child: Text('خطأ'));
-                          }
-                        }).toList();
-
-                        // إذا كانت القيمة الحالية غير موجودة ضمن العناصر، نعطي null
-                        final currentVal = (selectedValue != null && uniqueMap.containsKey(selectedValue)) ? selectedValue : null;
-
-                        return DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'اختر الموقع يدويًا',
-                            border: OutlineInputBorder(),
-                          ),
-                          value: currentVal,
-                          items: items,
-                          onChanged: (val) {
-                            if (val == null) return;
-                            final sel = uniqueMap[val];
-                            setState(() {
-                              _locationId = val;
-                              try {
-                                final dyn = sel as dynamic;
-                                _locationName = (dyn.name ?? dyn['name'])?.toString();
-                                final cName = (dyn.client_name ?? dyn['client_name'] ?? dyn.clientName ?? dyn['clientName']);
-                                if (cName != null && cName.toString().isNotEmpty) {
-                                  _clientName = cName.toString();
-                                }
-                              } catch (_) {}
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        if (_shiftHint != null && _shiftHint!.trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              children: [
-                const Icon(Icons.schedule, size: 18),
-                const SizedBox(width: 6),
-                Expanded(child: Text(_shiftHint!, style: const TextStyle(fontSize: 12))),
-              ],
-            ),
-          ),
-
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.login),
-                label: const Text("تسجيل الحضور"),
-                onPressed: (_checkedIn || _loading)
-                    ? null
-                    : () => _handleAction("check_in"),
+    return RefreshIndicator(
+      onRefresh: () => _bootstrap(forceEmployeeRefresh: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_unrestricted)
+            Card(
+              color: cs.secondaryContainer,
+              child: ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('وردية غير مقيّدة'),
+                subtitle: const Text('يمكنك تسجيل الحضور أو الانصراف في أي وقت.'),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.logout),
-                label: const Text("تسجيل الانصراف"),
-                onPressed: (!_checkedIn || _loading)
-                    ? null
-                    : () => _handleAction("check_out"),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.emergency_share_outlined),
-            label: const Text("انصراف مبكر"),
-            onPressed: (_loading) ? null : _openEarlyCheckoutDialog,
-          ),
-        ),
-
-        if (_loading) ...[
-          const SizedBox(height: 16),
-          const Center(child: CircularProgressIndicator()),
-        ],
-
-        if (_lastServerMessage != null || _lastData != null) ...[
-          const SizedBox(height: 16),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("تفاصيل آخر تسجيل:",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  if (_lastServerMessage != null) Text(_lastServerMessage!),
-                  if (_lastData != null) ...[
-                    const SizedBox(height: 8),
-                    _ResultTable(map: _lastData!, fmt: _fmtIsoDateTimeLocal),
-                  ],
+                  Row(
+                    children: [
+                      Icon(statusIcon, size: 36, color: cs.primary),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          statusText,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      if (timeStr != null) Text(timeStr),
+                    ],
+                  ),
+                  if (_locationName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text('الموقع: $_locationName',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ),
+                  if (_clientName != null && _clientName!.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text('العميل: $_clientName',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ),
+                  if (_locationsSummary != null && _locationsSummary!.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12.0),
+                      child: Text(
+                        'المواقع المتاحة: $_locationsSummary',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          if (_shiftHint != null && _shiftHint!.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.schedule, size: 18),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(_shiftHint!, style: const TextStyle(fontSize: 12))),
+                ],
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.login),
+                  label: const Text("تسجيل الحضور"),
+                  onPressed: (_checkedIn || _loading)
+                      ? null
+                      : () => _handleAction("check_in"),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.logout),
+                  label: const Text("تسجيل الانصراف"),
+                  onPressed: (!_checkedIn || _loading)
+                      ? null
+                      : () => _handleAction("check_out"),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.emergency_share_outlined),
+              label: const Text("انصراف مبكر"),
+              onPressed: (_loading) ? null : _openEarlyCheckoutDialog,
+            ),
+          ),
+          if (_loading) ...[
+            const SizedBox(height: 16),
+            const Center(child: CircularProgressIndicator()),
+          ],
+          if (_lastServerMessage != null || _lastData != null) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text("تفاصيل آخر تسجيل:",
+                        style: TextStyle(fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 8),
+                    if (_lastServerMessage != null) Text(_lastServerMessage!),
+                    if (_lastData != null) ...[
+                      const SizedBox(height: 8),
+                      _ResultTable(map: _lastData!, fmt: _fmtIsoDateTimeLocal),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
+  }
+
+  DateTime? _tryParseDateTime(dynamic raw) {
+    if (raw == null) return null;
+    try {
+      return DateTime.parse(raw.toString()).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _composeLocationsSummary(List<dynamic>? locations) {
+    if (locations == null || locations.isEmpty) return null;
+    final List<String> names = [];
+    final Set<String> seenIds = {};
+    for (final loc in locations) {
+      try {
+        final dyn = loc as dynamic;
+        final id = (dyn.id ?? dyn['id']).toString();
+        if (seenIds.contains(id)) continue;
+        seenIds.add(id);
+        final rawName = (dyn.name ?? dyn['name'])?.toString();
+        if (rawName != null && rawName.trim().isNotEmpty) {
+          names.add(rawName.trim());
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    if (names.isEmpty) return null;
+    return names.join('، ');
+  }
+
+  String? _normalizeAction(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final collapsed = trimmed.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+    switch (collapsed) {
+      case 'checkin':
+      case 'signin':
+        return 'check_in';
+      case 'checkout':
+      case 'signout':
+        return 'check_out';
+      case 'earlycheckout':
+      case 'earlysignout':
+        return 'early_check_out';
+      default:
+        return null;
+    }
+  }
+
+  String _statusLabelFor(String? action) {
+    switch (_normalizeAction(action)) {
+      case 'check_in':
+        return 'تم تسجيل الحضور';
+      case 'check_out':
+        return 'تم تسجيل الانصراف';
+      case 'early_check_out':
+        return 'تم تسجيل انصراف مبكر';
+      default:
+        return 'لم يتم تسجيل أي إجراء بعد';
+    }
+  }
+
+  IconData _statusIconFor(String? action) {
+    switch (_normalizeAction(action)) {
+      case 'check_in':
+        return Icons.login;
+      case 'check_out':
+        return Icons.logout;
+      case 'early_check_out':
+        return Icons.emergency_share_outlined;
+      default:
+        return Icons.access_time;
+    }
+  }
+
+  Future<void> _persistLastAttendanceState({
+    required String action,
+    required DateTime timestamp,
+    String? message,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      Map<String, dynamic>? safeData;
+      if (data != null) {
+        try {
+          final encoded = jsonEncode(data);
+          safeData = Map<String, dynamic>.from(jsonDecode(encoded) as Map);
+        } catch (_) {
+          safeData = null;
+        }
+      }
+
+      final payload = <String, dynamic>{
+        'action': action,
+        'time': timestamp.toUtc().toIso8601String(),
+        if (message != null && message.isNotEmpty) 'message': message,
+        if (_locationName != null && _locationName!.isNotEmpty) 'location_name': _locationName,
+        if (_clientName != null && _clientName!.isNotEmpty) 'client_name': _clientName,
+        if (safeData != null) 'data': safeData,
+      };
+
+      await sp.setString(_kLastAttendanceStateKey, jsonEncode(payload));
+    } catch (_) {}
   }
 }
 /// تنسيق عرض النتائج بشكل ودّي

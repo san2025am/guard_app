@@ -24,10 +24,30 @@ class AppLocalizationsEn extends AppLocalizations {
   String get language => 'Language';
 
   @override
+  String get language_settings_title => 'Language preferences';
+
+  @override
+  String get language_settings_hint => 'Choose your preferred language below';
+
+  @override
   String get arabic => 'Arabic';
 
   @override
   String get english => 'English';
+
+  @override
+  String get session_timeout_title => 'Session timeout';
+
+  @override
+  String session_timeout_message(int seconds) {
+    return 'No activity detected. You will be logged out in $seconds seconds.';
+  }
+
+  @override
+  String get session_timeout_keep => 'Keep working';
+
+  @override
+  String get session_timeout_logout => 'Logout now';
 
   @override
   String get login => 'Login';
@@ -40,6 +60,88 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get forgot_password => 'Forgot password?';
+
+  @override
+  String get device_untrusted_title => 'Unregistered Device';
+
+  @override
+  String get device_untrusted_message =>
+      'Dear user, this device is not trusted yet. If you want to continue, you need to add it to your trusted devices list.';
+
+  @override
+  String get device_untrusted_accept => 'Yes';
+
+  @override
+  String get device_untrusted_decline => 'No';
+
+  @override
+  String device_otp_instructions(Object destination) {
+    return 'Enter the verification code sent to $destination.';
+  }
+
+  @override
+  String get device_otp_label => 'Verification code';
+
+  @override
+  String get device_otp_confirm => 'Verify device';
+
+  @override
+  String get device_otp_destination_email => 'your email';
+
+  @override
+  String get device_verification_cancelled => 'Device verification cancelled';
+
+  @override
+  String get device_verification_required =>
+      'Device verification is required to complete the login.';
+
+  @override
+  String biometric_login_button(Object method) {
+    return 'Log in with $method';
+  }
+
+  @override
+  String biometric_auth_reason(Object method) {
+    return 'Confirm your identity using $method.';
+  }
+
+  @override
+  String get biometric_enable_title => 'Enable biometric login?';
+
+  @override
+  String biometric_enable_message(Object method) {
+    return 'Would you like to use $method for faster logins?';
+  }
+
+  @override
+  String get biometric_enable_confirm => 'Enable';
+
+  @override
+  String get biometric_enable_skip => 'Not now';
+
+  @override
+  String biometric_enabled_confirmation(Object method) {
+    return 'Biometric login with $method has been enabled.';
+  }
+
+  @override
+  String get biometric_not_configured =>
+      'Biometric login is not configured yet.';
+
+  @override
+  String get biometric_auth_failed => 'Biometric authentication failed.';
+
+  @override
+  String get biometric_method_face => 'Face ID';
+
+  @override
+  String get biometric_method_fingerprint => 'Fingerprint';
+
+  @override
+  String get biometric_method_iris => 'Iris';
+
+  @override
+  String get biometric_method_generic => 'Biometric';
 
   @override
   String get send_code => 'Send code to email';
@@ -308,6 +410,12 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get coming_soon => 'Coming soon';
+
+  @override
+  String get request_leave => 'Leave request';
+
+  @override
+  String get request_leave_hint => 'Submit a leave request to your supervisor';
 
   @override
   String get logout => 'Logout';

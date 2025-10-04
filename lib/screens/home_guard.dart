@@ -1,19 +1,14 @@
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:security_quard/screens/report_request_pages.dart';
 import '../l10n/app_localizations.dart';
 
 import '../app_settings.dart';
 import '../models/employee.dart';
-import '../services/api.dart';  // لو عندك AppSettings (الثيم/اللغة)
-
-
+import '../services/api.dart'; // لو عندك AppSettings (الثيم/اللغة)
 
 import 'attendancepage.dart';
 import 'report_request_pages.dart';
-
-
-
 
 class HomeGuard extends StatelessWidget {
   static const route = '/home';
@@ -43,32 +38,41 @@ class _HomeGuardScreenState extends State<HomeGuardScreen> {
     if (!mounted) return;
     Navigator.of(context).pushNamedAndRemoveUntil(
       '/login', // LoginScreen.route
-          (route) => false,
+      (route) => false,
     );
   }
+
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
-    final settings = context.read<AppSettings?>(); // قد يكون null لو ما تستخدم provider
+    final settings = context
+        .read<AppSettings?>(); // قد يكون null لو ما تستخدم provider
     final isDark = settings?.themeMode == ThemeMode.dark;
 
     return Scaffold(
-
       body: IndexedStack(index: _index, children: _pages),
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: _index,
         onTap: (i) => setState(() => _index = i),
         items: [
-          BottomNavigationBarItem(icon: const Icon(Icons.person), label: t.profile),
-          BottomNavigationBarItem(icon: const Icon(Icons.check_circle), label: t.attendance),
-          BottomNavigationBarItem(icon: const Icon(Icons.assignment), label: t.reports_requests),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person),
+            label: t.profile,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.check_circle),
+            label: t.attendance,
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.assignment),
+            label: t.reports_requests,
+          ),
         ],
       ),
     );
   }
 }
 // تبويب برفايل الموظف
-
 
 class GuardProfilePage extends StatefulWidget {
   const GuardProfilePage({super.key});
@@ -151,14 +155,14 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
 
     final e = _emp!;
     final hasEmpInstr = _has(e.employeeInstructions);
-    final hasLocInstr = (e.locationInstructions?.where((x) => _has(x)).isNotEmpty) == true;
+    final hasLocInstr =
+        (e.locationInstructions?.where((x) => _has(x)).isNotEmpty) == true;
 
     return RefreshIndicator(
       onRefresh: _load,
       child: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-
           // ===== بطاقة الرأس =====
           Card(
             child: Padding(
@@ -190,6 +194,64 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                 ],
               ),
             ),
+          ),
+
+          const SizedBox(height: 12),
+
+          Consumer<AppSettings>(
+            builder: (context, settings, _) {
+              final currentLanguage = settings.locale.languageCode == 'ar'
+                  ? t.arabic
+                  : t.english;
+              return Card(
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t.language_settings_title,
+                        style: theme.textTheme.titleMedium,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '${t.language}: $currentLanguage',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 12),
+                      Text(
+                        t.language_settings_hint,
+                        style: theme.textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 16),
+                      Wrap(
+                        spacing: 12,
+                        children: [
+                          ChoiceChip(
+                            label: Text(t.arabic),
+                            selected:
+                                settings.locale.languageCode.toLowerCase() ==
+                                'ar',
+                            onSelected: (v) {
+                              if (v) settings.setLocale(const Locale('ar'));
+                            },
+                          ),
+                          ChoiceChip(
+                            label: Text(t.english),
+                            selected:
+                                settings.locale.languageCode.toLowerCase() ==
+                                'en',
+                            onSelected: (v) {
+                              if (v) settings.setLocale(const Locale('en'));
+                            },
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
 
           const SizedBox(height: 12),
@@ -286,12 +348,12 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                     subtitle: _safe(e.supervisorName),
                     trailing: _has(e.supervisorPhone)
                         ? IconButton(
-                      onPressed: () {
-                        // يمكنك استخدام url_launcher للاتصال
-                        // launchUrl(Uri.parse('tel:${e.supervisorPhone}'));
-                      },
-                      icon: const Icon(Icons.phone),
-                    )
+                            onPressed: () {
+                              // يمكنك استخدام url_launcher للاتصال
+                              // launchUrl(Uri.parse('tel:${e.supervisorPhone}'));
+                            },
+                            icon: const Icon(Icons.phone),
+                          )
                         : null,
                   ),
                   if (_has(e.supervisorPhone)) _divider(),
@@ -321,8 +383,6 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                       title: const Text("تعليمات الموظف"),
                       subtitle: Text(_safe(e.employeeInstructions)),
                     ),
-
-
                 ],
               ),
             ),
@@ -333,11 +393,17 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                 leading: const Icon(Icons.assignment),
                 title: const Text("المهام"),
                 subtitle: Text('${e.tasks.length} مهمة'),
-                children: e.tasks.map((t) => ListTile(
-                  title: Text(t.title),
-                  subtitle: Text("${t.description}\nالموقع: ${t.locationName}"),
-                  trailing: Text(t.status),
-                )).toList(),
+                children: e.tasks
+                    .map(
+                      (t) => ListTile(
+                        title: Text(t.title),
+                        subtitle: Text(
+                          "${t.description}\nالموقع: ${t.locationName}",
+                        ),
+                        trailing: Text(t.status),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
 
@@ -347,14 +413,19 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                 leading: const Icon(Icons.schedule),
                 title: const Text("الورديات"),
                 subtitle: Text('${e.shifts.length} وردية'),
-                children: e.shifts.map((s) => ListTile(
-                  title: Text(s.shiftName),
-                  subtitle: Text("التاريخ: ${s.date}\nمن ${s.startTime} إلى ${s.endTime}"),
-                  trailing: Text(s.active ? "نشطة" : "منتهية"),
-                )).toList(),
+                children: e.shifts
+                    .map(
+                      (s) => ListTile(
+                        title: Text(s.shiftName),
+                        subtitle: Text(
+                          "التاريخ: ${s.date}\nمن ${s.startTime} إلى ${s.endTime}",
+                        ),
+                        trailing: Text(s.active ? "نشطة" : "منتهية"),
+                      ),
+                    )
+                    .toList(),
               ),
             ),
-
 
           const SizedBox(height: 12),
 
@@ -366,7 +437,6 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                 title: const Text("المواقع"),
                 subtitle: Text('${e.locations.length} موقع'),
                 children: e.locations.map((l) {
-
                   final hasLInstr = _has(l.instructions);
                   return Column(
                     children: [
@@ -376,11 +446,18 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                       ),
                       if (hasLInstr)
                         Padding(
-                          padding: const EdgeInsetsDirectional.only(start: 16, end: 16, bottom: 12),
+                          padding: const EdgeInsetsDirectional.only(
+                            start: 16,
+                            end: 16,
+                            bottom: 12,
+                          ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              const Icon(Icons.sticky_note_2_outlined, size: 20),
+                              const Icon(
+                                Icons.sticky_note_2_outlined,
+                                size: 20,
+                              ),
                               const SizedBox(width: 8),
                               Expanded(
                                 child: Text(
@@ -451,14 +528,7 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
   }
 }
 
-
-
-
-
-
-
-  @override
-
+/// تبويب 3: التقارير والطلبات (واجهة مبدئية)
 class ReportsRequestsPage extends StatelessWidget {
   const ReportsRequestsPage({super.key});
 
@@ -476,9 +546,14 @@ class ReportsRequestsPage extends StatelessWidget {
             subtitle: Text(t.create_report_hint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
-              await Navigator.of(context).push<bool>(
+              final created = await Navigator.of(context).push<bool>(
                 MaterialPageRoute(builder: (_) => const CreateReportScreen()),
               );
+              if (created == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(t.report_submit_success)),
+                );
+              }
             },
           ),
         ),
@@ -489,8 +564,8 @@ class ReportsRequestsPage extends StatelessWidget {
             title: Text(t.open_requests),
             subtitle: Text(t.open_requests_hint),
             trailing: const Icon(Icons.chevron_right),
-            onTap: () async {
-              await Navigator.of(context).push<bool>(
+            onTap: () {
+              Navigator.of(context).push(
                 MaterialPageRoute(builder: (_) => const OpenRequestsScreen()),
               );
             },
@@ -499,14 +574,55 @@ class ReportsRequestsPage extends StatelessWidget {
         const SizedBox(height: 12),
         Card(
           child: ListTile(
-            leading: const Icon(Icons.beenhere_outlined),
+            leading: const Icon(Icons.playlist_add_check_circle_outlined),
             title: Text(t.create_request),
             subtitle: Text(t.create_request_hint),
             trailing: const Icon(Icons.chevron_right),
             onTap: () async {
-              await Navigator.of(context).push<bool>(
+              final created = await Navigator.of(context).push<bool>(
                 MaterialPageRoute(builder: (_) => const CreateRequestScreen()),
               );
+              if (created == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(t.request_submit_success)),
+                );
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.beenhere_outlined),
+            title: Text(t.request_leave),
+            subtitle: Text(t.request_leave_hint),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () async {
+              final created = await Navigator.of(context).push<bool>(
+                MaterialPageRoute(
+                  builder: (_) =>
+                      const CreateRequestScreen(initialType: 'leave'),
+                ),
+              );
+              if (created == true) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text(t.request_submit_success)),
+                );
+              }
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.account_balance_wallet_outlined),
+            title: Text(t.open_advances),
+            subtitle: Text(t.open_advances_hint),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(
+                context,
+              ).push(MaterialPageRoute(builder: (_) => const AdvancesScreen()));
             },
           ),
         ),
