@@ -344,7 +344,7 @@ class _AttendancePageState extends State<AttendancePage> {
             }
             final clientName = data['client_name']?.toString();
             if (clientName != null && clientName.isNotEmpty) {
-              _clientName = clientName;
+              clientName = clientName;
             }
           }
         });
