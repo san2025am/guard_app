@@ -1,9 +1,12 @@
+/// نقطة الدخول لتطبيق سنام الأمن وما يرتبط به من شاشات وخدمات.
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart'; // إن لم تكن تستخدمه، أضفه: provider:^6.0.5
+import 'package:security_quard/providers/last_record_provider.dart';
 import 'package:security_quard/services/api.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'app_settings.dart';
 import 'theme.dart';
 import 'l10n/app_localizations.dart';
@@ -14,6 +17,7 @@ import 'screens/forgot_password_screen.dart';
 import 'screens/reset_password_screen.dart';
 import 'screens/home_guard.dart';
 
+/// يحمّل الإعدادات المخزنة قبل تشغيل التطبيق.
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -21,10 +25,23 @@ void main() async {
   await settings.load();
 
   runApp(
-    ChangeNotifierProvider.value(value: settings, child: const SanamApp()),
-  );
+  MultiProvider(
+    providers: [
+      // الإعدادات الحالية لديك (نفس ما كان في ChangeNotifierProvider.value)
+      ChangeNotifierProvider.value(value: settings),
+
+      // مزوّد يتتبّع آخر سجل حضور/انصراف
+      ChangeNotifierProvider(create: (_) => LastRecordProvider()),
+    ],
+    // لو كان اسم التطبيق لديك SanamApp أبقه كما هو
+    child: const SanamApp(),
+    // وإن كنت تستخدم MyApp بدلاً من SanamApp: child: const MyApp(),
+  ),
+);
+
 }
 
+/// يضبط `MaterialApp` بالثيمات، اللغات، والمسارات الأساسية.
 class SanamApp extends StatelessWidget {
   const SanamApp({super.key});
 
@@ -67,20 +84,36 @@ class SanamApp extends StatelessWidget {
   }
 }
 
-/// شيل يضيف AppBar موحّد بأزرار (تبديل الثيم واللغة) لكل شاشة
+/// غلاف موحد يضيف AppBar وأزرار التحكم المشتركة لكل شاشة.
 class Shell extends StatelessWidget {
   final Widget child;
   const Shell({super.key, required this.child});
-  Future<void> _logout(BuildContext context) async {
-    await ApiService.logout();
-    SessionTimeoutWatcher.refreshAuth(context);
-    Navigator.of(context).pushNamedAndRemoveUntil(
-      '/login', // LoginScreen.route
-      (route) => false,
-    );
-  }
 
   @override
+  Future<void> _logout(BuildContext context) async {
+  // 1. تسجيل الخروج من الـ API
+  await ApiService.logout();
+
+  // 2. مسح حالة آخر سجلّ من الـ Provider (الذي يُستخدم لتحديث الواجهة)
+  if (context.mounted) {
+    context.read<LastRecordProvider>().clear();
+  }
+
+  // 3. إعادة ضبط مراقب الجلسة (اختياري حسب تطبيقك)
+  SessionTimeoutWatcher.refreshAuth(context);
+
+  // 4. تنظيف كل تفضيلات SharedPreferences
+  final prefs = await SharedPreferences.getInstance();
+  await prefs.clear();
+
+  // 5. الانتقال إلى صفحة تسجيل الدخول مع إزالة كل الصفحات السابقة
+  if (!context.mounted) return;
+  Navigator.of(context).pushNamedAndRemoveUntil(
+    '/login',
+    (route) => false,
+  );
+}
+
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
     final settings = context.watch<AppSettings>();
@@ -126,6 +159,7 @@ class Shell extends StatelessWidget {
   }
 }
 
+/// يراقب نشاط المستخدم ليعيد التحقق من الجلسة عند الخمول أو الاستئناف.
 class SessionTimeoutWatcher extends StatefulWidget {
   const SessionTimeoutWatcher({super.key, required this.child});
 
@@ -141,6 +175,7 @@ class SessionTimeoutWatcher extends StatefulWidget {
   State<SessionTimeoutWatcher> createState() => _SessionTimeoutWatcherState();
 }
 
+/// منطق مؤقت الخمول والتنبيه قبل تسجيل الخروج.
 class _SessionTimeoutWatcherState extends State<SessionTimeoutWatcher>
     with WidgetsBindingObserver {
   static const Duration _inactiveDuration = Duration(minutes: 1);

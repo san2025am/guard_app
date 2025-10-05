@@ -338,6 +338,192 @@ abstract class AppLocalizations {
   /// **'Biometric'**
   String get biometric_method_generic;
 
+  /// No description provided for @guard_tasks_title.
+  ///
+  /// In en, this message translates to:
+  /// **'My tasks'**
+  String get guard_tasks_title;
+
+  /// No description provided for @guard_tasks_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Track assigned tasks and update their status.'**
+  String get guard_tasks_hint;
+
+  /// No description provided for @tasks_screen_title.
+  ///
+  /// In en, this message translates to:
+  /// **'My Tasks'**
+  String get tasks_screen_title;
+
+  /// No description provided for @task_location_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Location'**
+  String get task_location_label;
+
+  /// No description provided for @task_due_date.
+  ///
+  /// In en, this message translates to:
+  /// **'Due: {date}'**
+  String task_due_date(Object date);
+
+  /// No description provided for @task_status_note_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Note'**
+  String get task_status_note_label;
+
+  /// No description provided for @task_note_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Add details for this status update (optional)'**
+  String get task_note_hint;
+
+  /// No description provided for @task_update_success.
+  ///
+  /// In en, this message translates to:
+  /// **'Task updated successfully.'**
+  String get task_update_success;
+
+  /// No description provided for @task_update_failure.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t update the task.'**
+  String get task_update_failure;
+
+  /// No description provided for @tasks_load_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load tasks.'**
+  String get tasks_load_error;
+
+  /// No description provided for @task_update_button.
+  ///
+  /// In en, this message translates to:
+  /// **'Move to {status}'**
+  String task_update_button(Object status);
+
+  /// No description provided for @task_note_dialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Update to {status}'**
+  String task_note_dialog_title(Object status);
+
+  /// No description provided for @task_cancel.
+  ///
+  /// In en, this message translates to:
+  /// **'Cancel'**
+  String get task_cancel;
+
+  /// No description provided for @task_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Confirm'**
+  String get task_confirm;
+
+  /// No description provided for @task_no_items.
+  ///
+  /// In en, this message translates to:
+  /// **'No tasks assigned at the moment.'**
+  String get task_no_items;
+
+  /// No description provided for @uniform_request_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Uniform request'**
+  String get uniform_request_title;
+
+  /// No description provided for @uniform_request_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'Select the pieces you need to request.'**
+  String get uniform_request_hint;
+
+  /// No description provided for @uniform_items_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No pieces selected yet.'**
+  String get uniform_items_empty;
+
+  /// No description provided for @uniform_items_required.
+  ///
+  /// In en, this message translates to:
+  /// **'Please add at least one uniform piece.'**
+  String get uniform_items_required;
+
+  /// No description provided for @uniform_items_load_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t load uniform items. Try again later.'**
+  String get uniform_items_load_error;
+
+  /// No description provided for @uniform_add_item.
+  ///
+  /// In en, this message translates to:
+  /// **'Add piece'**
+  String get uniform_add_item;
+
+  /// No description provided for @uniform_edit_item.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit piece'**
+  String get uniform_edit_item;
+
+  /// No description provided for @uniform_select_item.
+  ///
+  /// In en, this message translates to:
+  /// **'Choose a piece'**
+  String get uniform_select_item;
+
+  /// No description provided for @uniform_quantity.
+  ///
+  /// In en, this message translates to:
+  /// **'Quantity'**
+  String get uniform_quantity;
+
+  /// No description provided for @uniform_quantity_invalid.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid quantity'**
+  String get uniform_quantity_invalid;
+
+  /// No description provided for @uniform_item_notes.
+  ///
+  /// In en, this message translates to:
+  /// **'Notes'**
+  String get uniform_item_notes;
+
+  /// No description provided for @uniform_payment_method.
+  ///
+  /// In en, this message translates to:
+  /// **'Payment method'**
+  String get uniform_payment_method;
+
+  /// No description provided for @uniform_payment_direct.
+  ///
+  /// In en, this message translates to:
+  /// **'Direct payment'**
+  String get uniform_payment_direct;
+
+  /// No description provided for @uniform_payment_deduction.
+  ///
+  /// In en, this message translates to:
+  /// **'Salary deduction'**
+  String get uniform_payment_deduction;
+
+  /// No description provided for @uniform_item_remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get uniform_item_remove;
+
+  /// No description provided for @uniform_total_value.
+  ///
+  /// In en, this message translates to:
+  /// **'Estimated total: {value}'**
+  String uniform_total_value(Object value);
+
   /// No description provided for @send_code.
   ///
   /// In en, this message translates to:
@@ -895,6 +1081,36 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Sign out of the account'**
   String get logoutTooltip;
+
+  /// No description provided for @environment_violation_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Security Warning'**
+  String get environment_violation_title;
+
+  /// No description provided for @environment_violation_message.
+  ///
+  /// In en, this message translates to:
+  /// **'We detected {issues}. Please disable VPN or mock-location tools before using the app.'**
+  String environment_violation_message(Object issues);
+
+  /// No description provided for @environment_violation_reason_vpn.
+  ///
+  /// In en, this message translates to:
+  /// **'an active VPN connection'**
+  String get environment_violation_reason_vpn;
+
+  /// No description provided for @environment_violation_reason_mock.
+  ///
+  /// In en, this message translates to:
+  /// **'a mock-location application'**
+  String get environment_violation_reason_mock;
+
+  /// No description provided for @environment_violation_exit.
+  ///
+  /// In en, this message translates to:
+  /// **'Exit app'**
+  String get environment_violation_exit;
 }
 
 class _AppLocalizationsDelegate

@@ -1,3 +1,4 @@
+/// شاشة تسجيل الدخول وتفعيل الدخول البيومتري.
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../l10n/app_localizations.dart';
@@ -6,6 +7,7 @@ import '../services/biometric_auth.dart';
 import '../services/device_identity.dart';
 import 'forgot_password_screen.dart';
 
+/// تجمع الحقول والإجراءات الخاصة بتسجيل الدخول.
 class LoginScreen extends StatefulWidget {
   static const route = '/login';
   const LoginScreen({super.key});
@@ -13,6 +15,7 @@ class LoginScreen extends StatefulWidget {
   State<LoginScreen> createState() => _LoginScreenState();
 }
 
+/// يحتوي على منطق التحقق والاتصال بالـ API.
 class _LoginScreenState extends State<LoginScreen> {
   final _form = GlobalKey<FormState>();
   final _u = TextEditingController();

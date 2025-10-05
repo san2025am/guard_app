@@ -1,3 +1,4 @@
+/// تعريف الثيمات الفاتحة والداكنة وأساس الهوية البصرية للتطبيق.
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
@@ -8,6 +9,7 @@ const Color kAccent = Color(0xFF948979);
 const Color kText   = Color(0xFFDFD0B8);
 const Color kTextInverse = Color(0xFF222831);
 
+/// يجهّز خطوط Tajawal مع احترام وضع السطوع الحالي.
 TextTheme _tajawalTextTheme(Brightness b) {
   // لا تحمّل من الشبكة أثناء runtime إذا ما في إنترنت
   GoogleFonts.config.allowRuntimeFetching = false;
@@ -20,6 +22,7 @@ TextTheme _tajawalTextTheme(Brightness b) {
   return GoogleFonts.tajawalTextTheme(base);
 }
 
+/// الثيم الداكن المستخدم عند اختيار الوضع الليلي.
 ThemeData sanamDarkTheme = ThemeData(
   brightness: Brightness.dark,
   scaffoldBackgroundColor: kBgDark,
@@ -55,6 +58,7 @@ ThemeData sanamDarkTheme = ThemeData(
   ),
 );
 
+/// الثيم الفاتح الافتراضي للتطبيق.
 ThemeData sanamLightTheme = ThemeData(
   brightness: Brightness.light,
   scaffoldBackgroundColor: const Color(0xFFDFD0B8),

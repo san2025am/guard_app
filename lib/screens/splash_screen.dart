@@ -1,11 +1,14 @@
-// lib/screens/splash_screen.dart
+/// شاشة البداية التي تقرر إعادة التوجيه بين تسجيل الدخول والصفحة الرئيسية.
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../l10n/app_localizations.dart';
+import '../services/environment_security.dart';
 import 'login_screen.dart';
 import 'home_guard.dart';
 
+/// تعرض الشعار أثناء تحميل التوكنات ثم تنتقل للشاشة المناسبة.
 class SplashScreen extends StatefulWidget {
   static const route = '/';
   const SplashScreen({super.key});
@@ -14,6 +17,7 @@ class SplashScreen extends StatefulWidget {
   State<SplashScreen> createState() => _SplashScreenState();
 }
 
+/// يتحكم في حركة الشعار ومنطق الانتقال السريع.
 class _SplashScreenState extends State<SplashScreen>
     with SingleTickerProviderStateMixin {
   late final AnimationController _ctl;
@@ -42,6 +46,13 @@ class _SplashScreenState extends State<SplashScreen>
     // شغّل الأنيميشن
     _ctl.forward();
 
+    final status = await EnvironmentSecurity.evaluate();
+    if (!mounted) return;
+    if (status.shouldBlock) {
+      await _showSecurityDialog(status);
+      return;
+    }
+
     // تحميل التوكن
     final p = await SharedPreferences.getInstance();
     final access = p.getString('access');
@@ -66,6 +77,40 @@ class _SplashScreenState extends State<SplashScreen>
       },
       settings: RouteSettings(name: nextRoute),
     ));
+  }
+
+  Future<void> _showSecurityDialog(EnvironmentStatus status) async {
+    final t = AppLocalizations.of(context)!;
+    final issues = <String>[];
+    if (status.vpnActive) {
+      issues.add(t.environment_violation_reason_vpn);
+    }
+    if (status.mockLocationDetected) {
+      issues.add(t.environment_violation_reason_mock);
+    }
+    final separator = Directionality.of(context) == TextDirection.rtl ? '، ' : ', ';
+    final issuesText = issues.join(separator);
+    final message = t.environment_violation_message(
+      issuesText.isEmpty ? t.environment_violation_reason_vpn : issuesText,
+    );
+
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => AlertDialog(
+        title: Text(t.environment_violation_title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: Text(t.environment_violation_exit),
+          ),
+        ],
+      ),
+    );
+
+    await Future.delayed(const Duration(milliseconds: 150));
+    SystemNavigator.pop();
   }
 
   @override

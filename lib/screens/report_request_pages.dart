@@ -1,3 +1,4 @@
+/// شاشات إرسال التقارير، الطلبات، والسلف للحارس.
 import 'dart:io';
 
 import 'package:flutter/material.dart';
@@ -9,6 +10,7 @@ import '../models/guard_advance.dart';
 import '../models/guard_request.dart';
 import '../services/api.dart';
 
+/// نموذج رفع تقرير ميداني مع وصف ومرفقات.
 class CreateReportScreen extends StatefulWidget {
   const CreateReportScreen({super.key});
 
@@ -298,6 +300,7 @@ class _CreateReportScreenState extends State<CreateReportScreen> {
 
 enum _AttachmentAction { imageCamera, imageGallery, videoCamera, videoGallery }
 
+/// يغلّف الصورة أو الفيديو قبل الرفع مع بيانات MIME.
 class _PendingAttachment {
   _PendingAttachment({
     required this.file,
@@ -313,6 +316,35 @@ class _PendingAttachment {
       file.name.isNotEmpty ? file.name : file.path.split('/').last;
 }
 
+/// خيار متاح في قائمة الزي مع السعر التعريفي.
+class _UniformItemOption {
+  _UniformItemOption({
+    required this.id,
+    required this.name,
+    required this.price,
+  });
+
+  final String id;
+  final String name;
+  final double price;
+}
+
+/// اختيار المستخدم من أصناف الزي مع الكمية والملاحظات.
+class _UniformSelection {
+  _UniformSelection({
+    required this.option,
+    required this.quantity,
+    this.notes,
+  });
+
+  final _UniformItemOption option;
+  int quantity;
+  String? notes;
+
+  double get total => option.price * quantity;
+}
+
+/// يمكّن الحارس من إنشاء طلبات (تغطية، إجازة، نقل، مواد، زي).
 class CreateRequestScreen extends StatefulWidget {
   const CreateRequestScreen({super.key, this.initialType});
 
@@ -329,11 +361,20 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   bool _submitting = false;
   DateTime? _leaveStart;
   DateTime? _leaveEnd;
+  final List<_UniformItemOption> _uniformOptions = [];
+  final List<_UniformSelection> _uniformSelections = [];
+  bool _loadingUniformItems = false;
+  String? _uniformItemsError;
+  String _uniformPaymentMethod = 'deduction';
+  bool _uniformRequestedOnce = false;
 
   @override
   void initState() {
     super.initState();
     _requestType = widget.initialType;
+    if (_isUniformType) {
+      _ensureUniformItemsLoaded();
+    }
   }
 
   @override
@@ -365,6 +406,15 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       }
     }
 
+    if (_isUniformType) {
+      if (_uniformSelections.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(t.uniform_items_required)),
+        );
+        return;
+      }
+    }
+
     setState(() => _submitting = true);
 
     final result = await ApiService.submitGuardRequest(
@@ -372,6 +422,18 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       description: _descriptionController.text.trim(),
       leaveStart: _isLeaveType ? _leaveStart : null,
       leaveEnd: _isLeaveType ? _leaveEnd : null,
+      uniformItems: _isUniformType
+          ? _uniformSelections
+              .map(
+                (e) => {
+                  'item_id': e.option.id,
+                  'quantity': e.quantity,
+                  if ((e.notes ?? '').trim().isNotEmpty) 'notes': e.notes!.trim(),
+                },
+              )
+              .toList(growable: false)
+          : null,
+      paymentMethod: _isUniformType ? _uniformPaymentMethod : null,
     );
 
     if (!mounted) return;
@@ -397,6 +459,7 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   @override
   Widget build(BuildContext context) {
     final t = AppLocalizations.of(context)!;
+    final theme = Theme.of(context);
 
     return Scaffold(
       appBar: AppBar(title: Text(t.create_request)),
@@ -428,6 +491,10 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                       value: 'materials',
                       child: Text(t.request_type_materials),
                     ),
+                    DropdownMenuItem(
+                      value: 'uniform',
+                      child: Text(t.uniform_request_title),
+                    ),
                   ],
                   onChanged: (value) {
                     setState(() {
@@ -436,7 +503,14 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                         _leaveStart = null;
                         _leaveEnd = null;
                       }
+                      if (!_isUniformType) {
+                        _uniformSelections.clear();
+                        _uniformPaymentMethod = 'deduction';
+                      }
                     });
+                    if (value == 'uniform') {
+                      _ensureUniformItemsLoaded();
+                    }
                   },
                   validator: (value) {
                     if (value == null || value.isEmpty) {
@@ -481,6 +555,10 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
                     ),
                   ),
                 ],
+                if (_isUniformType) ...[
+                  const SizedBox(height: 16),
+                  _buildUniformSection(t, theme),
+                ],
                 const SizedBox(height: 16),
                 TextFormField(
                   controller: _descriptionController,
@@ -516,6 +594,106 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
   }
 
   bool get _isLeaveType => _requestType == 'leave';
+  bool get _isUniformType => _requestType == 'uniform';
+
+  double get _uniformTotal => _uniformSelections.fold(0.0, (sum, item) => sum + item.total);
+
+  Future<void> _ensureUniformItemsLoaded() async {
+    if (!_isUniformType || _loadingUniformItems) return;
+    if (_uniformOptions.isNotEmpty) return;
+    if (_uniformRequestedOnce && _uniformItemsError == null) return;
+    _uniformRequestedOnce = true;
+    setState(() {
+      _loadingUniformItems = true;
+      _uniformItemsError = null;
+    });
+
+    final result = await ApiService.fetchUniformItems();
+    if (!mounted) return;
+
+    if (result.ok) {
+      final data = result.data;
+      final List<dynamic> rawList;
+      if (data != null && data['results'] is List) {
+        rawList = List<dynamic>.from(data['results'] as List);
+      } else {
+        rawList = const [];
+      }
+      _uniformOptions
+        ..clear()
+        ..addAll(
+          rawList.whereType<Map>().map((e) {
+            final map = Map<String, dynamic>.from(e as Map);
+            final price = double.tryParse(map['price']?.toString() ?? '') ?? 0;
+            return _UniformItemOption(
+              id: (map['id'] ?? '').toString(),
+              name: (map['name'] ?? '').toString(),
+              price: price,
+            );
+          }),
+        );
+      setState(() {
+        _loadingUniformItems = false;
+        _uniformItemsError = null;
+      });
+    } else {
+      setState(() {
+        _loadingUniformItems = false;
+        _uniformItemsError = result.message;
+      });
+    }
+  }
+
+  Future<_UniformSelection?> _showUniformSelectionDialog({_UniformSelection? initial}) {
+    if (_uniformOptions.isEmpty) {
+      return Future.value(null);
+    }
+
+    return showDialog<_UniformSelection>(
+      context: context,
+      builder: (context) {
+        return _UniformSelectionDialog(
+          options: _uniformOptions,
+          initial: initial,
+        );
+      },
+    );
+  }
+
+  void _addUniformSelection() async {
+    if (_uniformOptions.isEmpty) {
+      await _ensureUniformItemsLoaded();
+      if (!mounted || _uniformOptions.isEmpty) return;
+    }
+    final selection = await _showUniformSelectionDialog();
+    if (selection == null || !mounted) return;
+    setState(() {
+      final existingIndex = _uniformSelections.indexWhere((s) => s.option.id == selection.option.id);
+      if (existingIndex >= 0) {
+        _uniformSelections[existingIndex].quantity += selection.quantity;
+        if (selection.notes != null && selection.notes!.isNotEmpty) {
+          _uniformSelections[existingIndex].notes = selection.notes;
+        }
+      } else {
+        _uniformSelections.add(selection);
+      }
+    });
+  }
+
+  void _editUniformSelection(int index) async {
+    final current = _uniformSelections[index];
+    final edited = await _showUniformSelectionDialog(initial: current);
+    if (edited == null || !mounted) return;
+    setState(() {
+      _uniformSelections[index] = edited;
+    });
+  }
+
+  void _removeUniformSelection(int index) {
+    setState(() {
+      _uniformSelections.removeAt(index);
+    });
+  }
 
   Future<void> _pickLeaveDateTime({required bool isStart}) async {
     final now = DateTime.now();
@@ -564,8 +742,272 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       return DateFormat.yMMMd().add_Hm().format(dateTime.toLocal());
     }
   }
+
+  Widget _buildUniformSection(AppLocalizations t, ThemeData theme) {
+    if (_loadingUniformItems) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (_uniformItemsError != null) {
+      return Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                t.uniform_items_load_error,
+                style: theme.textTheme.titleMedium,
+              ),
+              const SizedBox(height: 8),
+              Text(_uniformItemsError!),
+              const SizedBox(height: 12),
+              Align(
+                alignment: AlignmentDirectional.centerEnd,
+                child: FilledButton(
+                  onPressed: _ensureUniformItemsLoaded,
+                  child: Text(t.retry),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(t.uniform_request_hint, style: theme.textTheme.bodyMedium),
+            const SizedBox(height: 12),
+            if (_uniformSelections.isEmpty)
+              Text(
+                t.uniform_items_empty,
+                style: theme.textTheme.bodySmall,
+              ),
+            if (_uniformOptions.isEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Text(
+                  t.uniform_items_load_error,
+                  style: theme.textTheme.bodySmall,
+                ),
+              ),
+            if (_uniformSelections.isNotEmpty)
+              ..._uniformSelections.asMap().entries.map(
+                (entry) {
+                  final index = entry.key;
+                  final selection = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: Text(selection.option.name),
+                      subtitle: Text(
+                        [
+                          '${t.uniform_quantity}: ${selection.quantity}',
+                          if (selection.notes != null && selection.notes!.isNotEmpty)
+                            '${t.uniform_item_notes}: ${selection.notes}',
+                        ].join('\n'),
+                      ),
+                      trailing: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(selection.total.toStringAsFixed(2)),
+                          IconButton(
+                            icon: const Icon(Icons.delete_outline),
+                            tooltip: t.uniform_item_remove,
+                            onPressed: () => _removeUniformSelection(index),
+                          ),
+                        ],
+                      ),
+                      onTap: () => _editUniformSelection(index),
+                    ),
+                  );
+                },
+              ),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: OutlinedButton.icon(
+                onPressed: _uniformOptions.isEmpty ? null : _addUniformSelection,
+                icon: const Icon(Icons.add),
+                label: Text(t.uniform_add_item),
+              ),
+            ),
+            const SizedBox(height: 12),
+            DropdownButtonFormField<String>(
+              value: _uniformPaymentMethod,
+              decoration: InputDecoration(labelText: t.uniform_payment_method),
+              items: [
+                DropdownMenuItem(
+                  value: 'deduction',
+                  child: Text(t.uniform_payment_deduction),
+                ),
+                DropdownMenuItem(
+                  value: 'direct',
+                  child: Text(t.uniform_payment_direct),
+                ),
+              ],
+              onChanged: (value) {
+                if (value == null) return;
+                setState(() => _uniformPaymentMethod = value);
+              },
+            ),
+            const SizedBox(height: 12),
+            Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: Text(
+                t.uniform_total_value(_uniformTotal.toStringAsFixed(2)),
+                style: theme.textTheme.titleMedium,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
+/// حوار مصغّر لاختيار صنف الزي وتحديد الكمية والملاحظات.
+class _UniformSelectionDialog extends StatefulWidget {
+  const _UniformSelectionDialog({
+    required this.options,
+    this.initial,
+  });
+
+  final List<_UniformItemOption> options;
+  final _UniformSelection? initial;
+
+  @override
+  State<_UniformSelectionDialog> createState() => _UniformSelectionDialogState();
+}
+
+/// يدير النموذج الداخلي للحوار ويعيد الاختيار النهائي.
+class _UniformSelectionDialogState extends State<_UniformSelectionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late _UniformItemOption? _selectedOption;
+  late final TextEditingController _quantityController;
+  late final TextEditingController _notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedOption = _initialOption();
+    _quantityController = TextEditingController(
+      text: (widget.initial?.quantity ?? 1).toString(),
+    );
+    _notesController = TextEditingController(text: widget.initial?.notes ?? '');
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  _UniformItemOption? _initialOption() {
+    if (widget.options.isEmpty) return null;
+    if (widget.initial == null) {
+      return widget.options.first;
+    }
+    final initialId = widget.initial!.option.id;
+    return widget.options.firstWhere(
+      (option) => option.id == initialId,
+      orElse: () => widget.options.first,
+    );
+  }
+
+  void _confirm() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    final quantity = int.parse(_quantityController.text.trim());
+    final notes = _notesController.text.trim();
+    Navigator.of(context).pop(
+      _UniformSelection(
+        option: _selectedOption!,
+        quantity: quantity,
+        notes: notes.isEmpty ? null : notes,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+
+    return AlertDialog(
+      title: Text(
+        widget.initial == null ? t.uniform_add_item : t.uniform_edit_item,
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<_UniformItemOption>(
+                value: _selectedOption,
+                items: widget.options
+                    .map(
+                      (option) => DropdownMenuItem(
+                        value: option,
+                        child: Text(
+                          '${option.name} • ${option.price.toStringAsFixed(2)}',
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _selectedOption = value),
+                validator: (value) =>
+                    value == null ? t.uniform_select_item : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _quantityController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: false,
+                  decimal: false,
+                ),
+                decoration: InputDecoration(labelText: t.uniform_quantity),
+                validator: (value) {
+                  final parsed = int.tryParse((value ?? '').trim());
+                  if (parsed == null || parsed <= 0) {
+                    return t.uniform_quantity_invalid;
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _notesController,
+                decoration: InputDecoration(labelText: t.uniform_item_notes),
+                minLines: 1,
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: Text(t.task_cancel),
+        ),
+        FilledButton(
+          onPressed: _selectedOption == null ? null : _confirm,
+          child: Text(t.task_confirm),
+        ),
+      ],
+    );
+  }
+}
+
+/// واجهة تقديم طلب سلفة مالية من الإدارة.
 class CreateAdvanceScreen extends StatefulWidget {
   const CreateAdvanceScreen({super.key});
 
@@ -675,6 +1117,7 @@ class _CreateAdvanceScreenState extends State<CreateAdvanceScreen> {
   }
 }
 
+/// يعرض الطلبات المفتوحة مع حالات الموافقة الحالية.
 class OpenRequestsScreen extends StatefulWidget {
   const OpenRequestsScreen({super.key});
 
@@ -682,6 +1125,7 @@ class OpenRequestsScreen extends StatefulWidget {
   State<OpenRequestsScreen> createState() => _OpenRequestsScreenState();
 }
 
+/// يدير تحميل الطلبات وتحديثها عبر `RefreshIndicator`.
 class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
   late Future<List<GuardRequest>> _future;
 
@@ -880,6 +1324,39 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
                                 style: theme.textTheme.bodyMedium,
                               ),
                             ),
+                          if (request.uniformDelivery != null)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    '${t.uniform_payment_method}: ${request.uniformDelivery!.paymentMethodDisplay}',
+                                  ),
+                                  ...request.uniformDelivery!.items.map(
+                                    (item) => Padding(
+                                      padding: const EdgeInsetsDirectional.only(start: 8, top: 2),
+                                      child: Column(
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text('• ${item.itemName} × ${item.quantity} (${item.value})'),
+                                          if (item.notes != null && item.notes!.isNotEmpty)
+                                            Text(
+                                              '${t.uniform_item_notes}: ${item.notes}',
+                                              style: theme.textTheme.bodySmall,
+                                            ),
+                                        ],
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    t.uniform_total_value(request.uniformDelivery!.totalValue),
+                                    style: theme.textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                            ),
                           if (request.approvalNotes != null &&
                               request.approvalNotes!.isNotEmpty)
                             Padding(
@@ -912,6 +1389,7 @@ class _OpenRequestsScreenState extends State<OpenRequestsScreen> {
   }
 }
 
+/// قائمة السلف المفتوحة مع إمكانية إنشاء طلب جديد.
 class AdvancesScreen extends StatefulWidget {
   const AdvancesScreen({super.key});
 
@@ -919,6 +1397,7 @@ class AdvancesScreen extends StatefulWidget {
   State<AdvancesScreen> createState() => _AdvancesScreenState();
 }
 
+/// يتحكم في تحميل السلف وعرضها كبطاقات.
 class _AdvancesScreenState extends State<AdvancesScreen> {
   late Future<List<GuardAdvance>> _future;
 

@@ -144,6 +144,109 @@ class AppLocalizationsEn extends AppLocalizations {
   String get biometric_method_generic => 'Biometric';
 
   @override
+  String get guard_tasks_title => 'My tasks';
+
+  @override
+  String get guard_tasks_hint =>
+      'Track assigned tasks and update their status.';
+
+  @override
+  String get tasks_screen_title => 'My Tasks';
+
+  @override
+  String get task_location_label => 'Location';
+
+  @override
+  String task_due_date(Object date) {
+    return 'Due: $date';
+  }
+
+  @override
+  String get task_status_note_label => 'Note';
+
+  @override
+  String get task_note_hint => 'Add details for this status update (optional)';
+
+  @override
+  String get task_update_success => 'Task updated successfully.';
+
+  @override
+  String get task_update_failure => 'Couldn\'t update the task.';
+
+  @override
+  String get tasks_load_error => 'Couldn\'t load tasks.';
+
+  @override
+  String task_update_button(Object status) {
+    return 'Move to $status';
+  }
+
+  @override
+  String task_note_dialog_title(Object status) {
+    return 'Update to $status';
+  }
+
+  @override
+  String get task_cancel => 'Cancel';
+
+  @override
+  String get task_confirm => 'Confirm';
+
+  @override
+  String get task_no_items => 'No tasks assigned at the moment.';
+
+  @override
+  String get uniform_request_title => 'Uniform request';
+
+  @override
+  String get uniform_request_hint => 'Select the pieces you need to request.';
+
+  @override
+  String get uniform_items_empty => 'No pieces selected yet.';
+
+  @override
+  String get uniform_items_required => 'Please add at least one uniform piece.';
+
+  @override
+  String get uniform_items_load_error =>
+      'Couldn\'t load uniform items. Try again later.';
+
+  @override
+  String get uniform_add_item => 'Add piece';
+
+  @override
+  String get uniform_edit_item => 'Edit piece';
+
+  @override
+  String get uniform_select_item => 'Choose a piece';
+
+  @override
+  String get uniform_quantity => 'Quantity';
+
+  @override
+  String get uniform_quantity_invalid => 'Enter a valid quantity';
+
+  @override
+  String get uniform_item_notes => 'Notes';
+
+  @override
+  String get uniform_payment_method => 'Payment method';
+
+  @override
+  String get uniform_payment_direct => 'Direct payment';
+
+  @override
+  String get uniform_payment_deduction => 'Salary deduction';
+
+  @override
+  String get uniform_item_remove => 'Remove';
+
+  @override
+  String uniform_total_value(Object value) {
+    return 'Estimated total: $value';
+  }
+
+  @override
   String get send_code => 'Send code to email';
 
   @override
@@ -422,4 +525,21 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get logoutTooltip => 'Sign out of the account';
+
+  @override
+  String get environment_violation_title => 'Security Warning';
+
+  @override
+  String environment_violation_message(Object issues) {
+    return 'We detected $issues. Please disable VPN or mock-location tools before using the app.';
+  }
+
+  @override
+  String get environment_violation_reason_vpn => 'an active VPN connection';
+
+  @override
+  String get environment_violation_reason_mock => 'a mock-location application';
+
+  @override
+  String get environment_violation_exit => 'Exit app';
 }

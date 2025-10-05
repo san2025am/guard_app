@@ -1,5 +1,7 @@
+/// نموذج يمثل طلب السلفة الماليّة المرتبط بالحارس.
 import 'package:intl/intl.dart';
 
+/// يحفظ قيم السلفة وحالاتها لتسهيل عرضها في الواجهة.
 class GuardAdvance {
   GuardAdvance({
     required this.id,
@@ -21,6 +23,7 @@ class GuardAdvance {
   final DateTime? approvedAt;
   final Map<String, dynamic> raw;
 
+  /// يتعامل مع اختلاف أسماء المفاتيح القادمة من الـ API.
   factory GuardAdvance.fromJson(Map<dynamic, dynamic> json) {
     final map = json.map((key, value) => MapEntry(key.toString(), value));
 
@@ -47,14 +50,18 @@ class GuardAdvance {
     );
   }
 
+  /// صيغة مقروءة لتاريخ إنشاء الطلب.
   String? get formattedRequestedAt => _formatDateTime(requestedAt);
+  /// صيغة مقروءة لتاريخ الموافقة على الطلب.
   String? get formattedApprovedAt => _formatDateTime(approvedAt);
 
+  /// يحوّل التواريخ إلى نص بصيغة موحدة.
   static String? _formatDateTime(DateTime? dt) {
     if (dt == null) return null;
     return DateFormat.yMMMd().add_Hm().format(dt.toLocal());
   }
 
+  /// يبحث عن أول قيمة نصية مناسبة ضمن قائمة المفاتيح.
   static String? _text(
     Map<String, dynamic> map,
     List<String> keys, {

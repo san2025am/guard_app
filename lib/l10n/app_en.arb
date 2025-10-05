@@ -72,6 +72,57 @@
   "biometric_method_fingerprint": "Fingerprint",
   "biometric_method_iris": "Iris",
   "biometric_method_generic": "Biometric",
+  "guard_tasks_title": "My tasks",
+  "guard_tasks_hint": "Track assigned tasks and update their status.",
+  "tasks_screen_title": "My Tasks",
+  "task_location_label": "Location",
+  "task_due_date": "Due: {date}",
+  "@task_due_date": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "task_status_note_label": "Note",
+  "task_note_hint": "Add details for this status update (optional)",
+  "task_update_success": "Task updated successfully.",
+  "task_update_failure": "Couldn't update the task.",
+  "tasks_load_error": "Couldn't load tasks.",
+  "task_update_button": "Move to {status}",
+  "@task_update_button": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "task_note_dialog_title": "Update to {status}",
+  "@task_note_dialog_title": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "task_cancel": "Cancel",
+  "task_confirm": "Confirm",
+  "task_no_items": "No tasks assigned at the moment.",
+  "uniform_request_title": "Uniform request",
+  "uniform_request_hint": "Select the pieces you need to request.",
+  "uniform_items_empty": "No pieces selected yet.",
+  "uniform_items_required": "Please add at least one uniform piece.",
+  "uniform_items_load_error": "Couldn't load uniform items. Try again later.",
+  "uniform_add_item": "Add piece",
+  "uniform_edit_item": "Edit piece",
+  "uniform_select_item": "Choose a piece",
+  "uniform_quantity": "Quantity",
+  "uniform_quantity_invalid": "Enter a valid quantity",
+  "uniform_item_notes": "Notes",
+  "uniform_payment_method": "Payment method",
+  "uniform_payment_direct": "Direct payment",
+  "uniform_payment_deduction": "Salary deduction",
+  "uniform_item_remove": "Remove",
+  "uniform_total_value": "Estimated total: {value}",
+  "@uniform_total_value": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "send_code": "Send code to email",
   "reset_password": "Reset password",
   "code": "Code (6 digits)",
@@ -165,5 +216,15 @@
     "request_leave": "Leave request",
     "request_leave_hint": "Submit a leave request to your supervisor",
     "logout": "Logout",
-     "logoutTooltip": "Sign out of the account"
+     "logoutTooltip": "Sign out of the account",
+    "environment_violation_title": "Security Warning",
+    "environment_violation_message": "We detected {issues}. Please disable VPN or mock-location tools before using the app.",
+    "@environment_violation_message": {
+      "placeholders": {
+        "issues": {}
+      }
+    },
+    "environment_violation_reason_vpn": "an active VPN connection",
+    "environment_violation_reason_mock": "a mock-location application",
+    "environment_violation_exit": "Exit app"
   }

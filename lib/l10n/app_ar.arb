@@ -72,6 +72,57 @@
   "biometric_method_fingerprint": "بصمة الإصبع",
   "biometric_method_iris": "بصمة العين",
   "biometric_method_generic": "البصمة الحيوية",
+  "guard_tasks_title": "مهامي",
+  "guard_tasks_hint": "تابع المهام المسندة وحدّث حالتها.",
+  "tasks_screen_title": "مهامي",
+  "task_location_label": "الموقع",
+  "task_due_date": "تاريخ الاستحقاق: {date}",
+  "@task_due_date": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "task_status_note_label": "ملاحظة",
+  "task_note_hint": "أضف تفاصيل عن هذا التحديث (اختياري)",
+  "task_update_success": "تم تحديث المهمة.",
+  "task_update_failure": "تعذّر تحديث المهمة.",
+  "tasks_load_error": "تعذّر تحميل المهام.",
+  "task_update_button": "تغيير الحالة إلى {status}",
+  "@task_update_button": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "task_note_dialog_title": "تحديث إلى {status}",
+  "@task_note_dialog_title": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "task_cancel": "إلغاء",
+  "task_confirm": "تأكيد",
+  "task_no_items": "لا توجد مهام مسندة حالياً.",
+  "uniform_request_title": "طلب زي",
+  "uniform_request_hint": "اختر قطع الزي المطلوبة.",
+  "uniform_items_empty": "لم تتم إضافة أي قطعة بعد.",
+  "uniform_items_required": "يرجى إضافة قطعة واحدة على الأقل.",
+  "uniform_items_load_error": "تعذّر تحميل قائمة الزي. حاول لاحقاً.",
+  "uniform_add_item": "إضافة قطعة",
+  "uniform_edit_item": "تعديل القطعة",
+  "uniform_select_item": "اختر قطعة",
+  "uniform_quantity": "الكمية",
+  "uniform_quantity_invalid": "أدخل كمية صحيحة",
+  "uniform_item_notes": "ملاحظات",
+  "uniform_payment_method": "طريقة الدفع",
+  "uniform_payment_direct": "دفع مباشر",
+  "uniform_payment_deduction": "خصم من الراتب",
+  "uniform_item_remove": "حذف",
+  "uniform_total_value": "الإجمالي التقريبي: {value}",
+  "@uniform_total_value": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "send_code": "إرسال الرمز للبريد",
   "reset_password": "استعادة كلمة المرور",
   "code": "الرمز (6 أرقام)",
@@ -164,7 +215,17 @@
     "request_leave": "طلب إجازة",
     "request_leave_hint": "قدّم طلب إجازة إلى المشرف",
       "logout": "تسجيل الخروج",
-      "logoutTooltip": "خروج من الحساب"
+      "logoutTooltip": "خروج من الحساب",
+      "environment_violation_title": "تنبيه أمني",
+      "environment_violation_message": "تم الكشف عن {issues}. يرجى تعطيل برامج VPN أو تزييف الموقع لمتابعة استخدام التطبيق.",
+      "@environment_violation_message": {
+        "placeholders": {
+          "issues": {}
+        }
+      },
+      "environment_violation_reason_vpn": "اتصال VPN نشط",
+      "environment_violation_reason_mock": "تطبيق لتزييف الموقع",
+      "environment_violation_exit": "إغلاق التطبيق"
 
 
 

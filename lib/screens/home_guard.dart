@@ -1,3 +1,4 @@
+/// الحاوية الرئيسية التي تعرض تبويبات الحارس ومحتواها.
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:security_quard/screens/report_request_pages.dart';
@@ -9,7 +10,9 @@ import '../services/api.dart'; // لو عندك AppSettings (الثيم/اللغ
 
 import 'attendancepage.dart';
 import 'report_request_pages.dart';
+import 'guard_tasks_screen.dart';
 
+/// نقطة دخول الواجهة بعد تسجيل الدخول الناجح.
 class HomeGuard extends StatelessWidget {
   static const route = '/home';
   const HomeGuard({super.key});
@@ -18,6 +21,7 @@ class HomeGuard extends StatelessWidget {
   Widget build(BuildContext context) => const HomeGuardScreen();
 }
 
+/// يدير التبويبات الثلاثة: الملف، الحضور، والتقارير.
 class HomeGuardScreen extends StatefulWidget {
   const HomeGuardScreen({super.key});
 
@@ -25,6 +29,7 @@ class HomeGuardScreen extends StatefulWidget {
   State<HomeGuardScreen> createState() => _HomeGuardScreenState();
 }
 
+/// يحتفظ بالفهرس الحالي ويعرض الصفحة المطابقة.
 class _HomeGuardScreenState extends State<HomeGuardScreen> {
   int _index = 0;
 
@@ -74,12 +79,14 @@ class _HomeGuardScreenState extends State<HomeGuardScreen> {
 }
 // تبويب برفايل الموظف
 
+/// يعرض بيانات الموظف ومعلومات الراتب والتعليمات.
 class GuardProfilePage extends StatefulWidget {
   const GuardProfilePage({super.key});
   @override
   State<GuardProfilePage> createState() => _GuardProfilePageState();
 }
 
+/// يجلب ملف الحارس ويهيئ البطاقات التعريفية.
 class _GuardProfilePageState extends State<GuardProfilePage> {
   EmployeeMe? _emp;
   bool _loading = true;
@@ -398,9 +405,37 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
                       (t) => ListTile(
                         title: Text(t.title),
                         subtitle: Text(
-                          "${t.description}\nالموقع: ${t.locationName}",
+                          [
+                            t.description,
+                            "الموقع: ${t.locationName}",
+                            if (t.dueDate != null && t.dueDate!.isNotEmpty)
+                              "تاريخ الاستحقاق: ${t.dueDate}",
+                            if (t.statusNote != null && t.statusNote!.isNotEmpty)
+                              "ملاحظة: ${t.statusNote}",
+                          ].where((line) => line.trim().isNotEmpty).join('\n'),
                         ),
-                        trailing: Text(t.status),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              t.statusLabel.isNotEmpty ? t.statusLabel : t.status,
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            if (t.canAdvance)
+                              Text(
+                                'التالي: ${
+                                  (t.nextStatusLabel != null && t.nextStatusLabel!.isNotEmpty)
+                                      ? t.nextStatusLabel
+                                      : t.nextStatus
+                                }',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: Theme.of(context).colorScheme.primary),
+                              ),
+                          ],
+                        ),
                       ),
                     )
                     .toList(),
@@ -554,6 +589,20 @@ class ReportsRequestsPage extends StatelessWidget {
                   SnackBar(content: Text(t.report_submit_success)),
                 );
               }
+            },
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.task_alt_outlined),
+            title: Text(t.guard_tasks_title),
+            subtitle: Text(t.guard_tasks_hint),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const GuardTasksScreen()),
+              );
             },
           ),
         ),

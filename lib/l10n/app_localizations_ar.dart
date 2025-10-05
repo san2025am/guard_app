@@ -144,6 +144,107 @@ class AppLocalizationsAr extends AppLocalizations {
   String get biometric_method_generic => 'البصمة الحيوية';
 
   @override
+  String get guard_tasks_title => 'مهامي';
+
+  @override
+  String get guard_tasks_hint => 'تابع المهام المسندة وحدّث حالتها.';
+
+  @override
+  String get tasks_screen_title => 'مهامي';
+
+  @override
+  String get task_location_label => 'الموقع';
+
+  @override
+  String task_due_date(Object date) {
+    return 'تاريخ الاستحقاق: $date';
+  }
+
+  @override
+  String get task_status_note_label => 'ملاحظة';
+
+  @override
+  String get task_note_hint => 'أضف تفاصيل عن هذا التحديث (اختياري)';
+
+  @override
+  String get task_update_success => 'تم تحديث المهمة.';
+
+  @override
+  String get task_update_failure => 'تعذّر تحديث المهمة.';
+
+  @override
+  String get tasks_load_error => 'تعذّر تحميل المهام.';
+
+  @override
+  String task_update_button(Object status) {
+    return 'تغيير الحالة إلى $status';
+  }
+
+  @override
+  String task_note_dialog_title(Object status) {
+    return 'تحديث إلى $status';
+  }
+
+  @override
+  String get task_cancel => 'إلغاء';
+
+  @override
+  String get task_confirm => 'تأكيد';
+
+  @override
+  String get task_no_items => 'لا توجد مهام مسندة حالياً.';
+
+  @override
+  String get uniform_request_title => 'طلب زي';
+
+  @override
+  String get uniform_request_hint => 'اختر قطع الزي المطلوبة.';
+
+  @override
+  String get uniform_items_empty => 'لم تتم إضافة أي قطعة بعد.';
+
+  @override
+  String get uniform_items_required => 'يرجى إضافة قطعة واحدة على الأقل.';
+
+  @override
+  String get uniform_items_load_error => 'تعذّر تحميل قائمة الزي. حاول لاحقاً.';
+
+  @override
+  String get uniform_add_item => 'إضافة قطعة';
+
+  @override
+  String get uniform_edit_item => 'تعديل القطعة';
+
+  @override
+  String get uniform_select_item => 'اختر قطعة';
+
+  @override
+  String get uniform_quantity => 'الكمية';
+
+  @override
+  String get uniform_quantity_invalid => 'أدخل كمية صحيحة';
+
+  @override
+  String get uniform_item_notes => 'ملاحظات';
+
+  @override
+  String get uniform_payment_method => 'طريقة الدفع';
+
+  @override
+  String get uniform_payment_direct => 'دفع مباشر';
+
+  @override
+  String get uniform_payment_deduction => 'خصم من الراتب';
+
+  @override
+  String get uniform_item_remove => 'حذف';
+
+  @override
+  String uniform_total_value(Object value) {
+    return 'الإجمالي التقريبي: $value';
+  }
+
+  @override
   String get send_code => 'إرسال الرمز للبريد';
 
   @override
@@ -422,4 +523,21 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get logoutTooltip => 'خروج من الحساب';
+
+  @override
+  String get environment_violation_title => 'تنبيه أمني';
+
+  @override
+  String environment_violation_message(Object issues) {
+    return 'تم الكشف عن $issues. يرجى تعطيل برامج VPN أو تزييف الموقع لمتابعة استخدام التطبيق.';
+  }
+
+  @override
+  String get environment_violation_reason_vpn => 'اتصال VPN نشط';
+
+  @override
+  String get environment_violation_reason_mock => 'تطبيق لتزييف الموقع';
+
+  @override
+  String get environment_violation_exit => 'إغلاق التطبيق';
 }

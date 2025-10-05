@@ -1,3 +1,4 @@
+/// يولّد معرّفًا ثابتًا للجهاز لتتبع تسجيل الدخول والأمان.
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -5,6 +6,7 @@ import 'dart:math';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+/// يحتوي على المعرف والاسم المقروء للجهاز.
 class DeviceIdentity {
   const DeviceIdentity({required this.id, required this.name});
 
@@ -12,10 +14,12 @@ class DeviceIdentity {
   final String name;
 }
 
+/// يوفّر أساليب قراءة أو إنشاء الهوية المحلية للجهاز.
 class DeviceIdentityService {
   static const _cacheIdKey = 'device_identity_id';
   static const _cacheNameKey = 'device_identity_name';
 
+  /// يسترجع الهوية من التخزين، أو ينشئ واحدة جديدة عند الحاجة.
   static Future<DeviceIdentity> load() async {
     final prefs = await SharedPreferences.getInstance();
     var cachedId = prefs.getString(_cacheIdKey);
@@ -67,6 +71,7 @@ class DeviceIdentityService {
     return DeviceIdentity(id: generatedId, name: generatedName);
   }
 
+  /// يحاول قراءة اسم الجهاز من معلومات النظام الأساسية.
   static Future<String> _readDeviceNameFromPlatform() async {
     try {
       if (Platform.isAndroid) {
@@ -85,6 +90,7 @@ class DeviceIdentityService {
     return Platform.operatingSystem;
   }
 
+  /// ينشئ قيمة عشوائية تُستخدم فقط عند فشل قراءة المعرف الحقيقي.
   static String _generateFallbackId() {
     try {
       final random = Random.secure();

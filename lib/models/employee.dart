@@ -1,4 +1,4 @@
-// ------- LocationMini -------
+/// تمثيل مبسّط لموقع عمل الحارس والتعليمات المرتبطة به.
 class LocationMini {
   final int id;
   final String name;
@@ -12,6 +12,7 @@ class LocationMini {
     this.instructions,
   });
 
+  /// يبني النموذج من خريطة JSON قادمة من الخادم.
   factory LocationMini.fromJson(Map<String, dynamic> j) => LocationMini(
     id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
     name: (j['name'] ?? '').toString(),
@@ -19,12 +20,16 @@ class LocationMini {
     instructions: (j['instructions'] ?? j['locationInstructions'])?.toString(),
   );
 }
-// ------- TaskMini -------
+/// يجمع المعلومات المختصرة لمهمة الحارس الحالية.
 class TaskMini {
-  final int id;
+  final String id;
   final String title;
   final String description;
   final String status;
+  final String statusLabel;
+  final String? statusNote;
+  final String? nextStatus;
+  final String? nextStatusLabel;
   final String? dueDate;
   final String locationName;
 
@@ -33,21 +38,37 @@ class TaskMini {
     required this.title,
     required this.description,
     required this.status,
+    required this.statusLabel,
+    this.statusNote,
+    this.nextStatus,
+    this.nextStatusLabel,
     this.dueDate,
     required this.locationName,
   });
 
+  /// يحوّل خريطة خام إلى نموذج مهمة جاهز للعرض.
   factory TaskMini.fromJson(Map<String, dynamic> j) => TaskMini(
-    id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
+    id: (j['id'] ?? '').toString(),
     title: (j['title'] ?? '').toString(),
     description: (j['description'] ?? '').toString(),
     status: (j['status'] ?? '').toString(),
+    statusLabel: (j['status_label'] ?? j['statusLabel'] ?? j['status_display'] ?? '').toString(),
+    statusNote: j['status_note']?.toString(),
+    nextStatus: j['next_status']?.toString(),
+    nextStatusLabel: j['next_status_label']?.toString(),
     dueDate: j['due_date']?.toString(),
     locationName: (j['location_name'] ?? '').toString(),
   );
+
+  /// يحدد ما إذا كان بالإمكان ترقية حالة المهمة من الواجهة.
+  bool get canAdvance => (nextStatus ?? '').isNotEmpty;
+
+  /// يحلل تاريخ الاستحقاق إلى `DateTime` عند توفره.
+  DateTime? get dueDateTime =>
+      (dueDate == null || dueDate!.isEmpty) ? null : DateTime.tryParse(dueDate!);
 }
 
-// ------- ShiftMini -------
+/// ملخص لورديات الحارس المجدولة مع أوقاتها.
 class ShiftMini {
   final int id;
   final String date;
@@ -67,6 +88,7 @@ class ShiftMini {
     this.notes,
   });
 
+  /// ينشئ الورديات من بيانات الخادم المهيكلة.
   factory ShiftMini.fromJson(Map<String, dynamic> j) => ShiftMini(
     id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
     date: (j['date'] ?? '').toString(),
@@ -77,6 +99,7 @@ class ShiftMini {
     notes: j['notes']?.toString(),
   );
 }
+/// يوضح ارتباط الحارس بشيفت معين مع هوامش الحضور والانصراف.
 class ShiftAssignMini {
   final int id;
   final String? date;            // ISO yyyy-MM-dd أو null (تكرار يومي)
@@ -106,6 +129,7 @@ class ShiftAssignMini {
     required this.notes,
   });
 
+  /// يحوّل بيانات التعيين الخام إلى نموذج قابل للاستخدام في الواجهة.
   factory ShiftAssignMini.fromJson(Map<String, dynamic> j) => ShiftAssignMini(
     id: int.tryParse(j['id']?.toString() ?? '') ?? 0,
     date: j['date']?.toString(),
@@ -122,7 +146,7 @@ class ShiftAssignMini {
   );
 }
 
-// ------- SalaryMini -------
+/// يحفظ تفاصيل كشف الراتب الأخير للحارس.
 class SalaryMini {
   final String? baseSalary, bonuses, overtime, deductions, totalSalary;
   final String? payDate; // ISO date
@@ -136,6 +160,7 @@ class SalaryMini {
     this.payDate,
   });
 
+  /// يبني نموذج الراتب مع دعم البيانات الناقصة.
   factory SalaryMini.fromJson(Map<String, dynamic>? j) {
     if (j == null) return SalaryMini();
     return SalaryMini(
@@ -149,7 +174,7 @@ class SalaryMini {
   }
 }
 
-// ------- EmployeeMe -------
+/// نموذج شامل لملف الحارس المعروض في التطبيق.
 class EmployeeMe {
   final int id;
   final String username;
@@ -200,6 +225,7 @@ class EmployeeMe {
     required this.shiftAssignments
   });
 
+  /// يدمج الحقول المتنوعة القادمة من الـ API في كائن واحد منظم.
   factory EmployeeMe.fromJson(Map<String, dynamic> j) {
     // role قد تأتي كنص/رقم أو كائن { name: ... }
     String? roleText;
