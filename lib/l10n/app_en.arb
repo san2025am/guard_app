@@ -5,12 +5,124 @@
   "theme_dark": "Dark",
   "toggle_theme": "Toggle Theme",
   "language": "Language",
+  "language_settings_title": "Language preferences",
+  "language_settings_hint": "Choose your preferred language below",
   "arabic": "Arabic",
   "english": "English",
+  "session_timeout_title": "Session timeout",
+  "session_timeout_message": "No activity detected. You will be logged out in {seconds} seconds.",
+  "@session_timeout_message": {
+    "placeholders": {
+      "seconds": {
+        "type": "int"
+      }
+    }
+  },
+  "session_timeout_keep": "Keep working",
+  "session_timeout_logout": "Logout now",
   "login": "Login",
   "username": "Username",
   "password": "Password",
   "forgot_password": "Forgot password?",
+  "device_untrusted_title": "Unregistered Device",
+  "device_untrusted_message": "Dear user, this device is not trusted yet. If you want to continue, you need to add it to your trusted devices list.",
+  "device_untrusted_accept": "Yes",
+  "device_untrusted_decline": "No",
+  "device_otp_instructions": "Enter the verification code sent to {destination}.",
+  "@device_otp_instructions": {
+    "placeholders": {
+      "destination": {}
+    }
+  },
+  "device_otp_label": "Verification code",
+  "device_otp_confirm": "Verify device",
+  "device_otp_destination_email": "your email",
+  "device_verification_cancelled": "Device verification cancelled",
+  "device_verification_required": "Device verification is required to complete the login.",
+  "biometric_login_button": "Log in with {method}",
+  "@biometric_login_button": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_auth_reason": "Confirm your identity using {method}.",
+  "@biometric_auth_reason": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_enable_title": "Enable biometric login?",
+  "biometric_enable_message": "Would you like to use {method} for faster logins?",
+  "@biometric_enable_message": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_enable_confirm": "Enable",
+  "biometric_enable_skip": "Not now",
+  "biometric_enabled_confirmation": "Biometric login with {method} has been enabled.",
+  "@biometric_enabled_confirmation": {
+    "placeholders": {
+      "method": {}
+    }
+  },
+  "biometric_not_configured": "Biometric login is not configured yet.",
+  "biometric_auth_failed": "Biometric authentication failed.",
+  "biometric_method_face": "Face ID",
+  "biometric_method_fingerprint": "Fingerprint",
+  "biometric_method_iris": "Iris",
+  "biometric_method_generic": "Biometric",
+  "guard_tasks_title": "My tasks",
+  "guard_tasks_hint": "Track assigned tasks and update their status.",
+  "tasks_screen_title": "My Tasks",
+  "task_location_label": "Location",
+  "task_due_date": "Due: {date}",
+  "@task_due_date": {
+    "placeholders": {
+      "date": {}
+    }
+  },
+  "task_status_note_label": "Note",
+  "task_note_hint": "Add details for this status update (optional)",
+  "task_update_success": "Task updated successfully.",
+  "task_update_failure": "Couldn't update the task.",
+  "tasks_load_error": "Couldn't load tasks.",
+  "task_update_button": "Move to {status}",
+  "@task_update_button": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "task_note_dialog_title": "Update to {status}",
+  "@task_note_dialog_title": {
+    "placeholders": {
+      "status": {}
+    }
+  },
+  "task_cancel": "Cancel",
+  "task_confirm": "Confirm",
+  "task_no_items": "No tasks assigned at the moment.",
+  "uniform_request_title": "Uniform request",
+  "uniform_request_hint": "Select the pieces you need to request.",
+  "uniform_items_empty": "No pieces selected yet.",
+  "uniform_items_required": "Please add at least one uniform piece.",
+  "uniform_items_load_error": "Couldn't load uniform items. Try again later.",
+  "uniform_add_item": "Add piece",
+  "uniform_edit_item": "Edit piece",
+  "uniform_select_item": "Choose a piece",
+  "uniform_quantity": "Quantity",
+  "uniform_quantity_invalid": "Enter a valid quantity",
+  "uniform_item_notes": "Notes",
+  "uniform_payment_method": "Payment method",
+  "uniform_payment_direct": "Direct payment",
+  "uniform_payment_deduction": "Salary deduction",
+  "uniform_item_remove": "Remove",
+  "uniform_total_value": "Estimated total: {value}",
+  "@uniform_total_value": {
+    "placeholders": {
+      "value": {}
+    }
+  },
   "send_code": "Send code to email",
   "reset_password": "Reset password",
   "code": "Code (6 digits)",
@@ -33,13 +145,86 @@
     "attendance_history_hint": "View your past check-ins",
     "create_report": "Create report",
     "create_report_hint": "Send a new report to supervisor",
+    "report_subject": "Subject",
+    "report_subject_required": "Subject is required",
+    "report_details": "Details",
+    "report_details_required": "Details are required",
+    "report_type_label": "Report type",
+    "report_type_required": "Please choose the report type",
+    "report_type_daily": "Daily report",
+    "report_type_monthly": "Monthly report",
+    "report_type_security": "Security incident",
+    "report_type_complaint": "Complaint",
+    "report_add_attachment": "Add attachment",
+    "report_attachments": "Attachments",
+    "report_attachment_image_camera": "Capture photo",
+    "report_attachment_image_gallery": "Choose photo from gallery",
+    "report_attachment_video_camera": "Record video",
+    "report_attachment_video_gallery": "Choose video from gallery",
+    "report_attachment_remove": "Remove",
+    "report_attachment_pick_error": "Couldn't pick attachment",
+    "submit_report": "Submit report",
+    "report_submit_success": "Report submitted successfully",
+    "report_submit_error": "Could not submit the report",
     "open_requests": "Open requests",
     "open_requests_hint": "View and track your requests",
-    "request_leave": "Request leave",
-    "request_leave_hint": "Submit a leave request",
+    "requests_empty_state": "No open requests yet.",
+    "requests_load_error": "Couldn't load requests",
+    "retry": "Retry",
+    "open_advances": "Advance requests",
+    "open_advances_hint": "Review submitted salary advances",
+    "request_type": "Type",
+    "request_status": "Status",
+    "request_submitted_on": "Submitted on",
+    "create_request": "Create request",
+    "create_request_hint": "Send a new request",
+    "request_type_required": "Please choose a request type",
+    "request_type_coverage": "Coverage",
+    "request_type_leave": "Leave",
+    "request_type_transfer": "Transfer",
+    "request_type_materials": "Materials",
+    "request_description": "Description",
+    "request_description_required": "Description is required",
+    "leave_start_datetime": "Leave start",
+    "leave_end_datetime": "Leave end",
+    "leave_start_not_selected": "No start selected",
+    "leave_end_not_selected": "No end selected",
+    "leave_pick_dates_required": "Please select start and end for the leave",
+    "leave_end_must_follow_start": "End must be after start",
+    "leave_range": "Leave period",
+    "leave_hours_label": "Leave hours",
+    "create_advance": "New advance request",
+    "create_advance_short": "New advance",
+    "create_advance_hint": "Submit a salary advance request",
+    "advance_amount": "Amount",
+    "advance_amount_required": "Please enter a valid amount",
+    "advance_reason": "Reason (optional)",
+    "advance_submit": "Submit advance",
+    "advance_submit_success": "Advance request submitted",
+    "advance_submit_error": "Could not submit the advance request",
+    "advances_load_error": "Couldn't load advances",
+    "advances_empty_state": "No advances yet.",
+    "advance_requested_on": "Requested on",
+    "advance_approved_on": "Approved on",
+    "currency_short_symbol": "SAR",
+    "submit_request": "Submit request",
+    "request_submit_success": "Request submitted successfully",
+    "request_submit_error": "Could not submit the request",
+    "request_approval_notes": "Decision notes",
+    "request_approver": "Handled by",
     "coming_soon": "Coming soon",
+    "request_leave": "Leave request",
+    "request_leave_hint": "Submit a leave request to your supervisor",
     "logout": "Logout",
-     "logoutTooltip": "Sign out of the account"
+     "logoutTooltip": "Sign out of the account",
+    "environment_violation_title": "Security Warning",
+    "environment_violation_message": "We detected {issues}. Please disable VPN or mock-location tools before using the app.",
+    "@environment_violation_message": {
+      "placeholders": {
+        "issues": {}
+      }
+    },
+    "environment_violation_reason_vpn": "an active VPN connection",
+    "environment_violation_reason_mock": "a mock-location application",
+    "environment_violation_exit": "Exit app"
   }
-
-

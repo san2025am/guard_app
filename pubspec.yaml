@@ -41,6 +41,10 @@ dependencies:
   intl:
   image_picker:
   geolocator:
+  http_parser:
+  device_info_plus: ^10.1.0
+  local_auth: ^2.3.0
+  flutter_secure_storage: ^9.0.0
   flutter_localizations:
       sdk: flutter
 
@@ -54,6 +58,15 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^5.0.0
+  flutter_launcher_icons: ^0.14.4
+
+flutter_launcher_icons:
+  android: true
+  ios: true
+  image_path: assets/images/app_icon.png
+  remove_alpha_ios: true
+  adaptive_icon_foreground: assets/images/app_icon.png
+  adaptive_icon_background: "#ffffff"
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec
@@ -68,6 +81,7 @@ flutter:
   generate: true
   assets:
     - assets/images/logo.png
+    - assets/images/app_icon.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

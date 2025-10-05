@@ -5,7 +5,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>$(DEVELOPMENT_LANGUAGE)</string>
 	<key>CFBundleDisplayName</key>
-	<string>Security Quard</string>
+	<string>سنام الأمن</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -49,6 +49,8 @@
     <string>نحتاج للوصول إلى موقعك لتسجيل الحضور والانصراف.</string>
     <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>نحتاج للوصول إلى موقعك لتسجيل الحضور والانصراف.</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>نستخدم Face ID لتسجيل الدخول بشكل آمن.</string>
 
 </dict>
 </plist>

@@ -1,6 +1,6 @@
 {
-    "name": "security_quard",
-    "short_name": "security_quard",
+    "name": "سنام الأمن",
+    "short_name": "سنام الأمن",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

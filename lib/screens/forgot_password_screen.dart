@@ -1,8 +1,10 @@
+/// شاشة إرسال رمز استعادة كلمة المرور عبر اسم المستخدم.
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api.dart';
 import 'reset_password_screen.dart';
 
+/// يسمح للمستخدم بطلب رمز إعادة التعيين.
 class ForgotPasswordScreen extends StatefulWidget {
   static const route = '/forgot';
   const ForgotPasswordScreen({super.key});
@@ -10,6 +12,7 @@ class ForgotPasswordScreen extends StatefulWidget {
   State<ForgotPasswordScreen> createState() => _ForgotPasswordScreenState();
 }
 
+/// يتابع حالة التحميل ويستدعي واجهة برمجة التطبيقات.
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _form = GlobalKey<FormState>();
   final _username = TextEditingController();

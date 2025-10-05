@@ -1,7 +1,9 @@
+/// شاشة إدخال رمز التحقق وكلمة المرور الجديدة.
 import 'package:flutter/material.dart';
 import '../l10n/app_localizations.dart';
 import '../services/api.dart';
 
+/// تنهي عملية استعادة كلمة المرور بعد إدخال الرمز.
 class ResetPasswordScreen extends StatefulWidget {
   static const route = '/reset';
   const ResetPasswordScreen({super.key});
@@ -9,6 +11,7 @@ class ResetPasswordScreen extends StatefulWidget {
   State<ResetPasswordScreen> createState() => _ResetPasswordScreenState();
 }
 
+/// يتابع الجلسة النشطة ويرسل الطلب النهائي للتغيير.
 class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _form = GlobalKey<FormState>();
   final _code = TextEditingController();

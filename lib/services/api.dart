@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 // لو عندك موديل EmployeeMe جاهز:
@@ -13,9 +14,6 @@ import '../models/employee.dart'; // يجب أن يحتوي EmployeeMe.fromJson(
 
 // --------------------------------------------------------
 // ضبط عنوان الـ API الأساسي (بدون شرطة مائلة في النهاية)
-// أمثلة صحيحة:
-//  - http://31.97.158.157/api/v1
-//  - https://your-domain.com/api
 // --------------------------------------------------------
 const String kBaseUrl = "http://31.97.158.157/api/v1";
 
@@ -41,6 +39,7 @@ String _joinUrl(String base, String path) {
 
 Uri _u(String path) => Uri.parse(_joinUrl(kBaseUrl, path));
 
+/// رؤوس JSON الافتراضية المرسلة لكل طلب.
 Map<String, String> _jsonHeaders() => const {
   'Content-Type': 'application/json',
   'Accept': 'application/json',
@@ -50,16 +49,66 @@ dynamic _tryDecode(String text) {
   try { return jsonDecode(text); } catch (_) { return null; }
 }
 
+/// فك الاستجابة مع دعم UTF-8
 dynamic _decode(http.Response res) {
   final text = utf8.decode(res.bodyBytes);
   final obj  = _tryDecode(text);
-  return obj ?? text; // قد يكون HTML/نص
+  return obj ?? text;
 }
 
+/// يستخرج رسالة خطأ صديقة
+String _messageFromBody(dynamic body, String fallback) {
+  if (body is Map) {
+    final map = body as Map;
+    for (final key in ['detail', 'message', 'error']) {
+      final value = map[key];
+      if (value != null && value.toString().trim().isNotEmpty) {
+        return value.toString();
+      }
+    }
+    for (final entry in map.entries) {
+      final v = entry.value;
+      if (v is List && v.isNotEmpty) return v.first.toString();
+      if (v is String && v.trim().isNotEmpty) return v;
+    }
+  } else if (body is List && body.isNotEmpty) {
+    return body.first.toString();
+  } else if (body is String) {
+    final t = body.trim();
+    if (t.isEmpty) return fallback;
+    final l = t.toLowerCase();
+    if (l.startsWith('<!doctype') || l.contains('<html')) return fallback;
+    return t;
+  }
+  return fallback;
+}
+
+String _dateOnly(DateTime date) => date.toIso8601String().split('T').first;
+
+Map<String, dynamic> _stringMap(Map source) =>
+    source.map((k, v) => MapEntry(k.toString(), v));
+
+/// يمثل مرفقًا ينتظر الرفع
+class ReportAttachmentUpload {
+  ReportAttachmentUpload({
+    required this.file,
+    this.contentType,
+  });
+
+  final File file;
+  final String? contentType;
+
+  MediaType? get mediaType {
+    if (contentType == null || contentType!.trim().isEmpty) return null;
+    try { return MediaType.parse(contentType!); } catch (_) { return null; }
+  }
+}
+
+/// يضمن بادئة Bearer
 String authHeader(String tokenOrHeader) {
   final t = tokenOrHeader.trim();
   if (t.startsWith('Bearer ') || t.startsWith('Token ')) return t;
-  return 'Bearer $t'; // أضف البادئة إذا كان خام
+  return 'Bearer $t';
 }
 
 double? asDouble(dynamic v) {
@@ -77,7 +126,7 @@ int? asInt(dynamic v) {
 }
 
 // ========================================================
-// مفاتيح التخزين وتهيئة التوكن (موحّد + ترحيل قديم)
+// مفاتيح التخزين + التوكن
 // ========================================================
 
 const _kAccessKeyNew = 'access_token';
@@ -85,22 +134,22 @@ const _kAccessKeyOld = 'access';      // توافق خلفي
 const _kRefreshKey  = 'refresh_token';
 const _kEmpKey      = 'employee_json';
 
+// --------- جديد (اختياري): تخزين آخر سجل محليًا لعرضه فورًا ----------
+const _kLastRecord = 'last_attendance_json';
+
 Future<void> _saveTokensRaw({required String access, String? refresh}) async {
   final sp = await SharedPreferences.getInstance();
-  await sp.setString(_kAccessKeyNew, access);      // نخزّن access الخام فقط
+  await sp.setString(_kAccessKeyNew, access);
   if (refresh != null && refresh.isNotEmpty) {
     await sp.setString(_kRefreshKey, refresh);
   }
-  // إزالة المفتاح القديم إن وُجد
   await sp.remove(_kAccessKeyOld);
 }
 
-/// يرجّع access الخام (ويهاجر أي صيغة قديمة تلقائيًا)
 Future<String?> _getAccessRaw() async {
   final sp = await SharedPreferences.getInstance();
   var acc = sp.getString(_kAccessKeyNew) ?? sp.getString(_kAccessKeyOld);
   if (acc == null || acc.isEmpty) return null;
-  // قص "Bearer " لو كانت محفوظة بالخطأ
   if (acc.startsWith('Bearer ')) acc = acc.substring(7);
   await sp.setString(_kAccessKeyNew, acc);
   await sp.remove(_kAccessKeyOld);
@@ -108,7 +157,7 @@ Future<String?> _getAccessRaw() async {
 }
 
 // ========================================================
-// نتائج موحّدة
+// نتائج موحدة
 // ========================================================
 
 typedef ApiResult   = ({bool ok, String message, Map<String, dynamic>? data});
@@ -121,24 +170,37 @@ typedef LoginResult = ({bool ok, String message, EmployeeMe? employee, Map<Strin
 class ApiService {
   static final http.Client _client = http.Client();
   static Future<String?> getAccessToken() => _getAccessRaw();
-
-  /// (اختياري) واجهة عامة للوصول السريع لبيانات الموظف من الكاش
   static Future<EmployeeMe?> getCachedEmployee() => cachedEmployee();
 
   // ---------------------------------------------
-  // تسجيل الدخول — يحفظ التوكن + يحاول حفظ employee إن وُجد
-  // POST /auth/guard/login/
-  // body: {username, password}
+  // Login
   // ---------------------------------------------
   static Future<Map<String, dynamic>> guardLogin(
       String username,
-      String password,
-      ) async {
+      String password, {
+        required String deviceId,
+        required String deviceName,
+        String? challengeId,
+        String? otpCode,
+      }) async {
     try {
+      final payload = <String, dynamic>{
+        'username': username,
+        'password': password,
+        'device_id': deviceId,
+        'device_name': deviceName,
+      };
+      if (challengeId != null && challengeId.isNotEmpty) {
+        payload['challenge_id'] = challengeId;
+      }
+      if (otpCode != null && otpCode.isNotEmpty) {
+        payload['otp_code'] = otpCode;
+      }
+
       final res = await _client.post(
         _u(_pLogin),
         headers: _jsonHeaders(),
-        body: jsonEncode({'username': username, 'password': password}),
+        body: jsonEncode(payload),
       ).timeout(const Duration(seconds: 20));
 
       final body = _decode(res);
@@ -146,7 +208,6 @@ class ApiService {
       if (res.statusCode == 200 && body is Map<String, dynamic>) {
         final prefs = await SharedPreferences.getInstance();
 
-        // Tokens (موحّد)
         final access  = (body['access'] ?? body['token'])?.toString() ?? '';
         final refresh = (body['refresh'] ?? '').toString();
         if (access.isEmpty) {
@@ -154,7 +215,6 @@ class ApiService {
         }
         await _saveTokensRaw(access: access, refresh: refresh);
 
-        // User info (اختياري)
         final user = (body['user'] is Map) ? body['user'] as Map : <String, dynamic>{};
         await prefs.setString('username', (user['username'] ?? '').toString());
         final roleVal  = user['role'];
@@ -163,7 +223,6 @@ class ApiService {
             : (roleVal?.toString() ?? '');
         await prefs.setString('role', roleText);
 
-        // employee من نفس الرد إن توفر
         Map<String, dynamic>? empJson;
         if (body.containsKey('employee') && body['employee'] is Map) {
           empJson = Map<String, dynamic>.from(body['employee'] as Map);
@@ -178,7 +237,18 @@ class ApiService {
         return {'ok': true, 'employee': empModel};
       }
 
-      // خطأ JSON مفهوم
+      if (res.statusCode == 202 && body is Map<String, dynamic>) {
+        return {
+          'ok': false,
+          'requires_verification': true,
+          'challenge_id': body['challenge_id']?.toString(),
+          'message': (body['detail'] ?? 'يتطلب توثيق الجهاز').toString(),
+          'destination': body['destination']?.toString(),
+          'delivery': body['delivery']?.toString(),
+          'debug_code': body['debug_code']?.toString(),
+        };
+      }
+
       if (body is Map<String, dynamic>) {
         return {'ok': false, 'message': (body['detail'] ?? body['message'] ?? 'تعذّر تسجيل الدخول').toString()};
       }
@@ -212,7 +282,6 @@ class ApiService {
       final body = _decode(res);
       if (res.statusCode == 200) {
         final emp = (body is Map && body.containsKey('employee')) ? body['employee'] : body;
-
         if (emp is Map<String, dynamic>) {
           await prefs.setString(_kEmpKey, jsonEncode(emp));
           try { return EmployeeMe.fromJson(emp); } catch (_) { return null; }
@@ -226,7 +295,6 @@ class ApiService {
     return null;
   }
 
-  // قراءة الموظف من الكاش
   static Future<EmployeeMe?> cachedEmployee() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_kEmpKey);
@@ -238,14 +306,12 @@ class ApiService {
     return null;
   }
 
-  /// يضمن وجود employee في الكاش (إن لم يوجد سيجلبه من السيرفر)
   static Future<EmployeeMe?> ensureEmployeeCached() async {
     final cached = await cachedEmployee();
     if (cached != null) return cached;
     return await fetchEmployeeAndCache();
   }
 
-  // تحديث الكاش (إن كان مسارك يدعم POST أو غيّره لـ GET)
   static Future<EmployeeMe?> refreshEmployeeCache() async {
     final prefs = await SharedPreferences.getInstance();
     final accessRaw = await _getAccessRaw();
@@ -278,6 +344,7 @@ class ApiService {
     await p.remove(_kAccessKeyOld);
     await p.remove(_kRefreshKey);
     await p.remove(_kEmpKey);
+    await p.remove(_kLastRecord); // جديد: نظّف آخر سجل
     await p.remove('username');
     await p.remove('role');
   }
@@ -337,7 +404,6 @@ class ApiService {
 // الموقع والحضور/الانصراف
 // ========================================================
 
-/// طلب/تأكيد صلاحيات الموقع
 Future<void> requestLocationPermissionsOrThrow() async {
   final serviceEnabled = await Geolocator.isLocationServiceEnabled();
   if (!serviceEnabled) {
@@ -352,7 +418,6 @@ Future<void> requestLocationPermissionsOrThrow() async {
   }
 }
 
-/// يلتقط أفضل Fix خلال نافذة زمنية (افتراضي 8 ثوان)
 Future<Position> getBestFix({
   Duration window = const Duration(seconds: 8),
   LocationAccuracy accuracy = LocationAccuracy.best,
@@ -374,14 +439,13 @@ Future<Position> getBestFix({
   while (DateTime.now().isBefore(end)) {
     final pos = await Geolocator.getCurrentPosition(desiredAccuracy: accuracy);
     if (best == null || pos.accuracy < best.accuracy) best = pos;
-    if (best.accuracy <= 15) break; // دقة ممتازة
+    if (best.accuracy <= 15) break;
     await Future.delayed(const Duration(milliseconds: 800));
   }
   if (best == null) throw Exception("تعذّر الحصول على إحداثيات.");
   return best;
 }
 
-/// إرسال حضور/انصراف (يلتقط الموقع داخليًا)
 Future<ApiResult> sendAttendance({
   required String baseUrl,      // مثال: http://31.97.158.157/api/v1
   required String token,        // التوكن الخام أو "Bearer <...>"
@@ -468,7 +532,7 @@ Future<ApiResult> sendAttendanceWithPosition({
 /// Endpoint مساعد: يحاول تحديد أقرب موقع (اختياري)
 Future<ApiResult> resolveMyLocation({
   required String baseUrl,
-  required String token,   // خام أو مع "Bearer"
+  required String token,
   required double lat,
   required double lng,
   required double accuracy,

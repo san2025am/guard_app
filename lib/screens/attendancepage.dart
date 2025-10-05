@@ -20,6 +20,28 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
+
+  static const String _kLastAttendanceStateKey = 'attendance_last_state';
+
+  bool _checkedIn = false;
+  DateTime? _time;
+  bool _loading = false;
+  String? _lastAction; // check_in / check_out / early_check_out
+
+  String? _locationId;   // UUID نص
+  String? _locationName; // اسم الموقع
+  String? _clientName;   // اسم العميل
+  String? _lastServerMessage;
+  Map<String, dynamic>? _lastData;
+
+  bool _unrestricted = false;
+  String? _shiftHint; // نص نافذة/سماحات
+  String? _locationsSummary;
+
+  BiometricMethod? _biometricMethod;
+
+  Timer? _pollTimer;    // يتحقق هل السجل ما يزال موجوداً
+  Timer? _refreshTimer; // يجلب آخر سجل من السيرفر
   bool _checkedIn = false;
   DateTime? _time;
   bool _loading = false;
@@ -35,7 +57,7 @@ class _AttendancePageState extends State<AttendancePage> {
 
   // عرض حالة “غير مقيّدة” + تلميح نصي
   bool _unrestricted = false;
-  String? _shiftHint; // نص موجز عن النافذة/السماحات
+  String? _shiftHint; // نص موجز عن النافذة/السماحا
 
   @override
   void initState() {
