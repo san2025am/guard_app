@@ -26,16 +26,6 @@ const String _pResetBySession  = '/auth/password/reset/username/';
 const String _pResolveLocation = '/attendance/resolve-location/';
 const String _pAttendanceCheck = '/attendance/check/';
 
-// --------- جديد لبطاقة "آخر تحديث" ---------
-const String _pAttendanceLast   = '/attendance/last/';
-const String _pAttendanceExists = '/attendance/exists/';
-
-const String _pGuardReports    = '/guards/reports/';
-const String _pGuardRequests   = '/guards/requests/';
-const String _pGuardAdvances   = '/guards/advances/';
-const String _pGuardTasks      = '/guards/tasks/';
-const String _pUniformItems    = '/guards/uniform-items/';
-
 // ========================================================
 // مُساعِدات عامة
 // ========================================================
@@ -260,18 +250,10 @@ class ApiService {
       }
 
       if (body is Map<String, dynamic>) {
-        final map = <String, dynamic>{
-          'ok': false,
-          'message': (body['detail'] ?? body['message'] ?? 'تعذّر تسجيل الدخول').toString(),
-        };
-        if (body['code'] != null) map['code'] = body['code'];
-        if (body['requires_verification'] == true) {
-          map['requires_verification'] = true;
-          map['challenge_id'] = body['challenge_id']?.toString();
-        }
-        return map;
+        return {'ok': false, 'message': (body['detail'] ?? body['message'] ?? 'تعذّر تسجيل الدخول').toString()};
       }
 
+      // محتوى غير JSON
       return {'ok': false, 'message': "الخادم أعاد محتوى غير متوقع (رمز ${res.statusCode})."};
     } catch (e) {
       return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
@@ -279,7 +261,9 @@ class ApiService {
   }
 
   // ---------------------------------------------
-  // ME
+  // جلب ملف الموظف وحفظه في الكاش
+  // GET /auth/guard/me/
+  // قد يرجع {employee:{...}} أو مباشرة {...}
   // ---------------------------------------------
   static Future<EmployeeMe?> fetchEmployeeAndCache() async {
     final prefs = await SharedPreferences.getInstance();
@@ -353,6 +337,7 @@ class ApiService {
     return null;
   }
 
+  // تسجيل خروج — حذف كل البيانات
   static Future<void> logout() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kAccessKeyNew);
@@ -365,7 +350,7 @@ class ApiService {
   }
 
   // ---------------------------------------------
-  // نسيت كلمة المرور
+  // نسيت كلمة المرور — باسم المستخدم
   // ---------------------------------------------
   static Future<Map<String, dynamic>> forgotByUsername(String username) async {
     try {
@@ -385,6 +370,9 @@ class ApiService {
     }
   }
 
+  // ---------------------------------------------
+  // إعادة تعيين كلمة المرور (session_id + code + new_password)
+  // ---------------------------------------------
   static Future<Map<String, dynamic>> resetBySession({
     required int sessionId,
     required String code,
@@ -408,512 +396,6 @@ class ApiService {
       return {'ok': false, 'message': (body is Map && body['detail'] != null) ? body['detail'].toString() : 'فشل التحقق من الرمز'};
     } catch (e) {
       return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
-    }
-  }
-
-  // ---------------------------------------------
-  // جديد: آخر سجل + التحقق من وجوده
-  // ---------------------------------------------
-
-  /// يجلب آخر سجل حضور/انصراف من السيرفر.
-  /// يتوقع رد مثل:
-  /// { id, employee_id, check_in_time, check_out_time, early_checkout, location_id, location_name, updated_at }
-  static Future<Map<String, dynamic>?> fetchLastAttendance() async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) return null;
-
-    final res = await _client.get(
-      _u(_pAttendanceLast),
-      headers: {
-        ..._jsonHeaders(),
-        'Authorization': authHeader(token),
-      },
-    ).timeout(const Duration(seconds: 20));
-
-    if (res.statusCode == 204) return null;
-    final body = _decode(res);
-    if (res.statusCode == 200 && body is Map<String, dynamic>) {
-      // خزّن نسخة محلية اختيارية لعرضها فور فتح الصفحة
-      final sp = await SharedPreferences.getInstance();
-      await sp.setString(_kLastRecord, jsonEncode(body));
-      return body;
-    }
-    return null;
-  }
-
-  /// يتحقق إن كان سجل الحضور ما زال موجودًا (يرجع false إذا حُذف من السيرفر).
-  /// السيرفر المثالي يعيد 204 لو موجود، و 404 لو غير موجود.
-  static Future<bool> attendanceExists(String recordId) async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) return false;
-
-    final uri = Uri.parse('${_joinUrl(kBaseUrl, _pAttendanceExists)}$recordId/');
-    final res = await _client.get(
-      uri,
-      headers: {
-        ..._jsonHeaders(),
-        'Authorization': authHeader(token),
-      },
-    ).timeout(const Duration(seconds: 15));
-
-    if (res.statusCode == 204) return true;
-    if (res.statusCode == 404) {
-      // نظّف الكاش المحلي إن كان يحمل نفس الـ id
-      final sp = await SharedPreferences.getInstance();
-      final raw = sp.getString(_kLastRecord);
-      if (raw != null) {
-        try {
-          final m = jsonDecode(raw);
-          if (m is Map && (m['id']?.toString() == recordId)) {
-            await sp.remove(_kLastRecord);
-          }
-        } catch (_) {}
-      }
-      return false;
-    }
-    // أي رمز آخر: لا نغيّر شيء
-    return true;
-  }
-
-  /// يقرأ آخر سجل من الكاش (إن وُجد) لعرضه مباشرة قبل الاستعلام من الشبكة.
-  static Future<Map<String, dynamic>?> cachedLastAttendance() async {
-    final sp = await SharedPreferences.getInstance();
-    final raw = sp.getString(_kLastRecord);
-    if (raw == null || raw.isEmpty) return null;
-    try {
-      final m = jsonDecode(raw);
-      return (m is Map<String, dynamic>) ? m : null;
-    } catch (_) {
-      return null;
-    }
-  }
-
-  // ---------------------------------------------
-  // التقارير / الطلبات / السلف / المهام / الزي
-  // ---------------------------------------------
-
-  static Future<ApiResult> submitGuardReport({
-    required String reportType,
-    required String description,
-    String? locationId,
-    List<ReportAttachmentUpload> attachments = const [],
-  }) async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    try {
-      http.Response res;
-      final usableAttachments = attachments
-          .where((att) => att.file.existsSync())
-          .toList(growable: false);
-
-      if (usableAttachments.isEmpty) {
-        res = await _client.post(
-          _u(_pGuardReports),
-          headers: {
-            ..._jsonHeaders(),
-            'Authorization': authHeader(token),
-          },
-          body: jsonEncode({
-            'report_type': reportType,
-            'description': description,
-            if (locationId != null && locationId.isNotEmpty) 'location': locationId,
-          }),
-        ).timeout(const Duration(seconds: 20));
-      } else {
-        final req = http.MultipartRequest('POST', _u(_pGuardReports));
-        req.headers.addAll({
-          'Authorization': authHeader(token),
-          'Accept': 'application/json',
-        });
-        req.fields['report_type'] = reportType;
-        req.fields['description'] = description;
-        if (locationId != null && locationId.isNotEmpty) {
-          req.fields['location'] = locationId;
-        }
-        for (final att in usableAttachments) {
-          req.files.add(await http.MultipartFile.fromPath(
-            'attachments',
-            att.file.path,
-            contentType: att.mediaType,
-          ));
-        }
-        final streamed = await req.send().timeout(const Duration(seconds: 30));
-        res = await http.Response.fromStream(streamed);
-      }
-
-      final body = _decode(res);
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        final data = body is Map<String, dynamic>
-            ? Map<String, dynamic>.from(body)
-            : {'raw': body};
-        return (ok: true, message: 'ok', data: data);
-      }
-
-      if (res.statusCode == 404) {
-        return (
-          ok: false,
-          message: 'واجهة التقارير غير متاحة (404).',
-          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
-        );
-      }
-
-      final message = _messageFromBody(body, 'تعذّر إرسال التقرير. تحقق من البيانات المدخلة.');
-      final data = body is Map<String, dynamic>
-          ? Map<String, dynamic>.from(body)
-          : (body is Map ? _stringMap(body as Map) : null);
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
-    }
-  }
-
-  static Future<ApiResult> submitGuardRequest({
-    required String requestType,
-    required String description,
-    DateTime? leaveStart,
-    DateTime? leaveEnd,
-    List<Map<String, dynamic>>? uniformItems,
-    String? paymentMethod,
-    String? uniformLocationId,
-  }) async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    final payload = <String, dynamic>{
-      'request_type': requestType,
-      'description': description,
-    };
-
-    if (requestType == 'leave') {
-      if (leaveStart != null) payload['leave_start'] = leaveStart.toIso8601String();
-      if (leaveEnd != null) payload['leave_end'] = leaveEnd.toIso8601String();
-    }
-
-    if (requestType == 'uniform') {
-      if (uniformItems != null && uniformItems.isNotEmpty) {
-        payload['uniform_items'] = uniformItems;
-      }
-      if (paymentMethod != null && paymentMethod.trim().isNotEmpty) {
-        payload['payment_method'] = paymentMethod.trim();
-      }
-      if (uniformLocationId != null && uniformLocationId.trim().isNotEmpty) {
-        payload['uniform_location_id'] = uniformLocationId.trim();
-      }
-    }
-
-    try {
-      final res = await _client.post(
-        _u(_pGuardRequests),
-        headers: {
-          ..._jsonHeaders(),
-          'Authorization': authHeader(token),
-        },
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 20));
-
-      final body = _decode(res);
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        final data = body is Map<String, dynamic>
-            ? Map<String, dynamic>.from(body)
-            : {'raw': body};
-        return (ok: true, message: 'ok', data: data);
-      }
-
-      if (res.statusCode == 404) {
-        return (
-          ok: false,
-          message: 'واجهة الطلبات غير متاحة (404).',
-          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
-        );
-      }
-
-      final message = _messageFromBody(body, 'تعذّر إرسال الطلب. تحقق من البيانات المدخلة.');
-      final data = body is Map<String, dynamic>
-          ? Map<String, dynamic>.from(body)
-          : (body is Map ? _stringMap(body as Map) : null);
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
-    }
-  }
-
-  static Future<ApiResult> submitGuardAdvance({
-    required double amount,
-    String? reason,
-  }) async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    final payload = {
-      'amount': amount,
-      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
-    };
-
-    try {
-      final res = await _client.post(
-        _u(_pGuardAdvances),
-        headers: {
-          ..._jsonHeaders(),
-          'Authorization': authHeader(token),
-        },
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 20));
-
-      final body = _decode(res);
-      if (res.statusCode == 200 || res.statusCode == 201) {
-        final data = body is Map<String, dynamic>
-            ? Map<String, dynamic>.from(body)
-            : {'raw': body};
-        return (ok: true, message: 'ok', data: data);
-      }
-
-      if (res.statusCode == 404) {
-        return (
-          ok: false,
-          message: 'واجهة السلف غير متاحة (404).',
-          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
-        );
-      }
-
-      final message = _messageFromBody(body, 'تعذّر إرسال طلب السلفة. تحقق من البيانات المدخلة.');
-      final data = body is Map<String, dynamic>
-          ? Map<String, dynamic>.from(body)
-          : (body is Map ? _stringMap(body as Map) : null);
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
-    }
-  }
-
-  static Future<ApiResult> fetchGuardAdvances() async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    try {
-      final res = await _client.get(
-        _u(_pGuardAdvances),
-        headers: {
-          ..._jsonHeaders(),
-          'Authorization': authHeader(token),
-        },
-      ).timeout(const Duration(seconds: 20));
-
-      final body = _decode(res);
-      if (res.statusCode == 200) {
-        List<dynamic> results = const [];
-        if (body is List) {
-          results = List<dynamic>.from(body);
-        } else if (body is Map && body['results'] is List) {
-          results = List<dynamic>.from(body['results'] as List);
-        }
-        final data = <String, dynamic>{'results': results, 'raw': body};
-        return (ok: true, message: 'ok', data: data);
-      }
-
-      if (res.statusCode == 404) {
-        return (
-          ok: false,
-          message: 'واجهة السلف غير متاحة (404).',
-          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
-        );
-      }
-
-      final message = _messageFromBody(body, 'تعذّر تحميل السلف');
-      final data = body is Map<String, dynamic>
-          ? Map<String, dynamic>.from(body)
-          : (body is Map ? _stringMap(body as Map) : null);
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
-    }
-  }
-
-  static Future<ApiResult> fetchGuardRequests({bool includeClosed = false}) async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    final basePath = _joinUrl(kBaseUrl, _pGuardRequests);
-    final uri = includeClosed
-        ? Uri.parse('$basePath?include_closed=true')
-        : Uri.parse(basePath);
-
-    try {
-      final res = await _client.get(
-        uri,
-        headers: {
-          ..._jsonHeaders(),
-          'Authorization': authHeader(token),
-        },
-      ).timeout(const Duration(seconds: 20));
-
-      final body = _decode(res);
-      if (res.statusCode == 200) {
-        List<dynamic> results = const [];
-        if (body is List) {
-          results = List<dynamic>.from(body);
-        } else if (body is Map && body['results'] is List) {
-          results = List<dynamic>.from(body['results'] as List);
-        }
-        final data = <String, dynamic>{'results': results, 'raw': body};
-        return (ok: true, message: 'ok', data: data);
-      }
-
-      if (res.statusCode == 404) {
-        return (
-          ok: false,
-          message: 'واجهة الطلبات غير متاحة (404).',
-          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
-        );
-      }
-
-      final message = _messageFromBody(body, 'تعذّر تحميل الطلبات');
-      final data = body is Map<String, dynamic>
-          ? Map<String, dynamic>.from(body)
-          : (body is Map ? _stringMap(body as Map) : null);
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
-    }
-  }
-
-  static Future<ApiResult> fetchGuardTasks({String? statusFilter}) async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    Uri uri = _u(_pGuardTasks);
-    if (statusFilter != null && statusFilter.trim().isNotEmpty) {
-      final current = Map<String, String>.from(uri.queryParameters);
-      current['status'] = statusFilter.trim();
-      uri = uri.replace(queryParameters: current);
-    }
-
-    try {
-      final res = await _client.get(
-        uri,
-        headers: {
-          ..._jsonHeaders(),
-          'Authorization': authHeader(token),
-        },
-      ).timeout(const Duration(seconds: 20));
-
-      final body = _decode(res);
-      if (res.statusCode == 200) {
-        final List<dynamic> rawList;
-        if (body is List) {
-          rawList = List<dynamic>.from(body);
-        } else if (body is Map && body['results'] is List) {
-          rawList = List<dynamic>.from(body['results'] as List);
-        } else {
-          rawList = const [];
-        }
-
-        final results = rawList
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList(growable: false);
-
-        return (ok: true, message: 'ok', data: {'results': results});
-      }
-
-      final message = _messageFromBody(body, 'تعذّر تحميل المهام.');
-      final data = body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null;
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
-    }
-  }
-
-  static Future<ApiResult> updateGuardTask({
-    required String taskId,
-    required String status,
-    String? statusNote,
-  }) async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    final payload = <String, dynamic>{
-      'status': status,
-      if (statusNote != null) 'status_note': statusNote,
-    };
-
-    try {
-      final res = await _client.patch(
-        Uri.parse('${_joinUrl(kBaseUrl, _pGuardTasks)}$taskId/'),
-        headers: {
-          ..._jsonHeaders(),
-          'Authorization': authHeader(token),
-        },
-        body: jsonEncode(payload),
-      ).timeout(const Duration(seconds: 20));
-
-      final body = _decode(res);
-      if (res.statusCode == 200) {
-        final data = body is Map<String, dynamic>
-            ? Map<String, dynamic>.from(body)
-            : (body is Map ? _stringMap(body as Map) : null);
-        return (ok: true, message: 'ok', data: data);
-      }
-
-      final message = _messageFromBody(body, 'تعذّر تحديث المهمة.');
-      final data = body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null;
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
-    }
-  }
-
-  static Future<ApiResult> fetchUniformItems() async {
-    final token = await _getAccessRaw();
-    if (token == null || token.isEmpty) {
-      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
-    }
-
-    try {
-      final res = await _client.get(
-        _u(_pUniformItems),
-        headers: {
-          ..._jsonHeaders(),
-          'Authorization': authHeader(token),
-        },
-      ).timeout(const Duration(seconds: 20));
-
-      final body = _decode(res);
-      if (res.statusCode == 200) {
-        final List<dynamic> rawList;
-        if (body is Map && body['results'] is List) {
-          rawList = List<dynamic>.from(body['results'] as List);
-        } else if (body is List) {
-          rawList = List<dynamic>.from(body);
-        } else {
-          rawList = const [];
-        }
-        final results = rawList
-            .whereType<Map>()
-            .map((e) => Map<String, dynamic>.from(e as Map))
-            .toList(growable: false);
-        return (ok: true, message: 'ok', data: {'results': results});
-      }
-
-      final message = _messageFromBody(body, 'تعذّر تحميل قائمة الزي.');
-      final data = body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null;
-      return (ok: false, message: message, data: data);
-    } catch (e) {
-      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
     }
   }
 }
@@ -965,9 +447,9 @@ Future<Position> getBestFix({
 }
 
 Future<ApiResult> sendAttendance({
-  required String baseUrl,
-  required String token,
-  required dynamic locationId,
+  required String baseUrl,      // مثال: http://31.97.158.157/api/v1
+  required String token,        // التوكن الخام أو "Bearer <...>"
+  required dynamic locationId,  // int أو UUID
   required String action,       // "check_in" | "check_out" | "early_check_out"
   Duration window = const Duration(seconds: 8),
   String? earlyReason,
@@ -989,6 +471,7 @@ Future<ApiResult> sendAttendance({
   }
 }
 
+/// إرسال حضور/انصراف بقراءة Position جاهزة
 Future<ApiResult> sendAttendanceWithPosition({
   required String baseUrl,
   required String token,
@@ -1012,6 +495,7 @@ Future<ApiResult> sendAttendanceWithPosition({
 
     http.Response res;
     if (earlyAttachment != null) {
+      // مرفق اختياري لانصراف مبكر
       final req = http.MultipartRequest('POST', uri);
       req.headers.addAll({'Authorization': authHeader(token)});
       body.forEach((k, v) => req.fields[k] = v.toString());
@@ -1034,18 +518,10 @@ Future<ApiResult> sendAttendanceWithPosition({
     Map<String, dynamic>? data;
     try { data = jsonDecode(text) as Map<String, dynamic>; } catch (_) {}
 
+    // ok = 200/201 + ok=true (إن وُجد)
     final ok = (res.statusCode == 200 || res.statusCode == 201) && (data?['ok'] ?? true);
+    // الرسالة بالعربي إن وُجدت، وإلا fallback لطيف
     final msg = (data?['detail']?.toString() ?? (ok ? 'تم تنفيذ العملية بنجاح' : 'تعذر تنفيذ الطلب'));
-
-    // لو كان آخر سجل موجود في الرد خله يحدّث الكاش
-    if (ok && data != null && data['record_id'] != null) {
-      try {
-        final sp = await SharedPreferences.getInstance();
-        // ليس كل الرد يرسل تفاصيل السجل؛ فقط نحاول مزامنة /attendance/last/ عند أول فرصة
-        // هنا لا نفعل شيء إضافي.
-        await sp.remove(_kLastRecord);
-      } catch (_) {}
-    }
 
     return (ok: ok, message: msg, data: data);
   } catch (e) {
@@ -1053,6 +529,7 @@ Future<ApiResult> sendAttendanceWithPosition({
   }
 }
 
+/// Endpoint مساعد: يحاول تحديد أقرب موقع (اختياري)
 Future<ApiResult> resolveMyLocation({
   required String baseUrl,
   required String token,
@@ -1085,9 +562,11 @@ Future<ApiResult> resolveMyLocation({
 }
 
 // ========================================================
-// دوال مختصرة تلقائية
+// دوال مختصرة "آلية بالكامل": تحديد موقع + تحقق وردية + إرسال
+// تناسب واجهة المستخدم لتقليل الخطوات في الشاشة.
 // ========================================================
 
+/// حضور تلقائي: يلتقط GPS -> يحدّد الموقع -> يرسل check_in
 Future<ApiResult> checkInAuto({
   String baseUrl = kBaseUrl,
   required String token,
@@ -1119,6 +598,7 @@ Future<ApiResult> checkInAuto({
   }
 }
 
+/// انصراف تلقائي
 Future<ApiResult> checkOutAuto({
   String baseUrl = kBaseUrl,
   required String token,
@@ -1150,6 +630,7 @@ Future<ApiResult> checkOutAuto({
   }
 }
 
+/// انصراف مبكر تلقائي — مع سبب ومرفق اختياري
 Future<ApiResult> earlyCheckOutAuto({
   String baseUrl = kBaseUrl,
   required String token,

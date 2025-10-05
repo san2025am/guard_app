@@ -1,4 +1,4 @@
-/// الحاوية الرئيسية التي تعرض تبويبات الحارس ومحتواها.
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:security_quard/screens/report_request_pages.dart';
@@ -6,7 +6,13 @@ import '../l10n/app_localizations.dart';
 
 import '../app_settings.dart';
 import '../models/employee.dart';
-import '../services/api.dart'; // لو عندك AppSettings (الثيم/اللغة)
+import '../services/api.dart';  // لو عندك AppSettings (الثيم/اللغة)
+
+
+
+import 'attendancepage.dart';
+
+
 
 import 'attendancepage.dart';
 import 'report_request_pages.dart';
@@ -562,6 +568,12 @@ class _GuardProfilePageState extends State<GuardProfilePage> {
     );
   }
 }
+
+
+
+
+
+
 
 /// تبويب 3: التقارير والطلبات (واجهة مبدئية)
 class ReportsRequestsPage extends StatelessWidget {
