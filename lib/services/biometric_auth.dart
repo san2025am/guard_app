@@ -245,6 +245,8 @@ class BiometricAuthService {
     await _storage.delete(key: _kUsernameKey);
     await _storage.delete(key: _kPasswordKey);
   }
+}
+
 
   /// يشرح للمستخدم سبب عدم ظهور Face على بعض أجهزة أندرويد (Face Unlock ضعيف).
   static Future<void> explainIfFaceUnavailable(BuildContext context) async {
@@ -310,4 +312,3 @@ class BiometricAuthService {
     );
     return ok ?? false;
   }
-}
