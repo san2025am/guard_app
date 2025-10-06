@@ -241,74 +241,73 @@ class BiometricAuthService {
   }
 
   /// يحذف بيانات الدخول المحفوظة.
-  static Future<void> clearCredentials() async {
-    await _storage.delete(key: _kUsernameKey);
-    await _storage.delete(key: _kPasswordKey);
-  }
+static Future<void> clearCredentials() async {
+  await _storage.delete(key: _kUsernameKey);
+  await _storage.delete(key: _kPasswordKey);
 }
 
 
-  /// يشرح للمستخدم سبب عدم ظهور Face على بعض أجهزة أندرويد (Face Unlock ضعيف).
-  static Future<void> explainIfFaceUnavailable(BuildContext context) async {
-    try {
-      final types = await _auth.getAvailableBiometrics();
-      final hasFace   = types.contains(BiometricType.face);
-      final hasStrong = types.contains(BiometricType.strong);
-      if (hasFace && !hasStrong) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('جهازك يدعم فتح الوجه الضعيف فقط، سنستخدم PIN كبديل آمن.')),
-        );
-      }
-    } catch (_) {
-      // تجاهل
-    }
-  }
-
-  /// يحاول المصادقة البيومترية؛ وإن فشلت أو غير مدعومة، يشغّل بديل PIN تلقائياً.
-  static Future<bool> authenticateOrPin({
-    required String reason,
-    required BuildContext context,
-    Future<bool> Function(BuildContext)? pinFallback,
-  }) async {
-    try {
-      final ok = await _auth.authenticate(
-        localizedReason: reason,
-        options: const AuthenticationOptions(
-          biometricOnly: true,
-          useErrorDialogs: true,
-          stickyAuth: false,
-          sensitiveTransaction: true,
-        ),
+/// يشرح للمستخدم سبب عدم ظهور Face على بعض أجهزة أندرويد (Face Unlock ضعيف).
+static Future<void> explainIfFaceUnavailable(BuildContext context) async {
+  try {
+    final types = await _auth.getAvailableBiometrics();
+    final hasFace   = types.contains(BiometricType.face);
+    final hasStrong = types.contains(BiometricType.strong);
+    if (hasFace && !hasStrong) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('جهازك يدعم فتح الوجه الضعيف فقط، سنستخدم PIN كبديل آمن.')),
       );
-      if (ok) return true;
-      // فشل: فعّل بديل PIN
-      if (pinFallback != null) return await pinFallback(context);
-      return await _askPinFallback(context);
-    } on PlatformException {
-      // خطأ (مثل: لا يوجد Face ID في iOS أو قوي في أندرويد)
-      if (pinFallback != null) return await pinFallback(context);
-      return await _askPinFallback(context);
     }
+  } catch (_) {
+    // تجاهل
   }
+}
 
-  /// بديل PIN بسيط؛ غيّره بما يلائمك (مثلاً التحقق عبر خادم).
-  static Future<bool> _askPinFallback(BuildContext context) async {
-    final ctrl = TextEditingController();
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('التحقق برمز PIN'),
-        content: TextField(
-          controller: ctrl,
-          keyboardType: TextInputType.number,
-          obscureText: true,
-          decoration: const InputDecoration(hintText: 'أدخل الرمز'),
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
-          ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text.trim().length >= 4), child: const Text('تأكيد')),
-        ],
+/// يحاول المصادقة البيومترية؛ وإن فشلت أو غير مدعومة، يشغّل بديل PIN تلقائياً.
+static Future<bool> authenticateOrPin({
+  required String reason,
+  required BuildContext context,
+  Future<bool> Function(BuildContext)? pinFallback,
+}) async {
+  try {
+    final ok = await _auth.authenticate(
+      localizedReason: reason,
+      options: const AuthenticationOptions(
+        biometricOnly: true,
+        useErrorDialogs: true,
+        stickyAuth: false,
+        sensitiveTransaction: true,
       ),
     );
-    return ok ?? false;
+    if (ok) return true;
+    // فشل: فعّل بديل PIN
+    if (pinFallback != null) return await pinFallback(context);
+    return await _askPinFallback(context);
+  } on PlatformException {
+    // خطأ (مثل: لا يوجد Face ID في iOS أو قوي في أندرويد)
+    if (pinFallback != null) return await pinFallback(context);
+    return await _askPinFallback(context);
   }
+}
+
+/// بديل PIN بسيط؛ غيّره بما يلائمك (مثلاً التحقق عبر خادم).
+static Future<bool> _askPinFallback(BuildContext context) async {
+  final ctrl = TextEditingController();
+  final ok = await showDialog<bool>(
+    context: context,
+    builder: (_) => AlertDialog(
+      title: const Text('التحقق برمز PIN'),
+      content: TextField(
+        controller: ctrl,
+        keyboardType: TextInputType.number,
+        obscureText: true,
+        decoration: const InputDecoration(hintText: 'أدخل الرمز'),
+      ),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('إلغاء')),
+        ElevatedButton(onPressed: () => Navigator.pop(context, ctrl.text.trim().length >= 4), child: const Text('تأكيد')),
+      ],
+    ),
+  );
+  return ok ?? false;
+}
