@@ -25,6 +25,16 @@ const String _pForgotUsername  = '/auth/password/forgot/username/';
 const String _pResetBySession  = '/auth/password/reset/username/';
 const String _pResolveLocation = '/attendance/resolve-location/';
 const String _pAttendanceCheck = '/attendance/check/';
+<<<<<<< HEAD
+=======
+const String _pAttendanceLatest = '/attendance/check/latest/';
+const String _pLocationPing     = '/attendance/location-ping/';
+const String _pGuardReports    = '/guards/reports/';
+const String _pGuardRequests   = '/guards/requests/';
+const String _pGuardAdvances   = '/guards/advances/';
+const String _pGuardTasks      = '/guards/tasks/';
+const String _pUniformItems    = '/guards/uniform-items/';
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 
 // ========================================================
 // مُساعِدات عامة
@@ -49,14 +59,22 @@ dynamic _tryDecode(String text) {
   try { return jsonDecode(text); } catch (_) { return null; }
 }
 
+<<<<<<< HEAD
 /// فك الاستجابة مع دعم UTF-8
+=======
+/// يحاول فك استجابة HTTP مع دعم UTF-8 والـ HTML.
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 dynamic _decode(http.Response res) {
   final text = utf8.decode(res.bodyBytes);
   final obj  = _tryDecode(text);
   return obj ?? text;
 }
 
+<<<<<<< HEAD
 /// يستخرج رسالة خطأ صديقة
+=======
+/// يستخرج رسالة خطأ صديقة للمستخدم من الاستجابة.
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 String _messageFromBody(dynamic body, String fallback) {
   if (body is Map) {
     final map = body as Map;
@@ -88,7 +106,11 @@ String _dateOnly(DateTime date) => date.toIso8601String().split('T').first;
 Map<String, dynamic> _stringMap(Map source) =>
     source.map((k, v) => MapEntry(k.toString(), v));
 
+<<<<<<< HEAD
 /// يمثل مرفقًا ينتظر الرفع
+=======
+/// يمثل مرفقًا ينتظر الرفع مع معلومات النوع.
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 class ReportAttachmentUpload {
   ReportAttachmentUpload({
     required this.file,
@@ -98,19 +120,25 @@ class ReportAttachmentUpload {
   final File file;
   final String? contentType;
 
+  /// يحول النص `contentType` إلى `MediaType` قابل للاستخدام في الطلب.
   MediaType? get mediaType {
     if (contentType == null || contentType!.trim().isEmpty) return null;
     try { return MediaType.parse(contentType!); } catch (_) { return null; }
   }
 }
 
+<<<<<<< HEAD
 /// يضمن بادئة Bearer
+=======
+/// يضمن أن التوكن يحمل بادئة `Bearer` الصحيحة.
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 String authHeader(String tokenOrHeader) {
   final t = tokenOrHeader.trim();
   if (t.startsWith('Bearer ') || t.startsWith('Token ')) return t;
   return 'Bearer $t';
 }
 
+/// يحوّل القيمة إلى `double` عند الإمكان.
 double? asDouble(dynamic v) {
   if (v == null) return null;
   if (v is num) return v.toDouble();
@@ -118,6 +146,7 @@ double? asDouble(dynamic v) {
   return null;
 }
 
+/// يحوّل القيمة إلى `int` عند الإمكان.
 int? asInt(dynamic v) {
   if (v == null) return null;
   if (v is num) return v.toInt();
@@ -167,14 +196,17 @@ typedef LoginResult = ({bool ok, String message, EmployeeMe? employee, Map<Strin
 // خدمة الـ API
 // ========================================================
 
+/// واجهة موحّدة لاستدعاء خدمات الـ REST الخاصة بتطبيق الحراس.
 class ApiService {
   static final http.Client _client = http.Client();
+  /// يعيد التوكن الحالي المخزن (إن وُجد).
   static Future<String?> getAccessToken() => _getAccessRaw();
   static Future<EmployeeMe?> getCachedEmployee() => cachedEmployee();
 
   // ---------------------------------------------
   // Login
   // ---------------------------------------------
+  /// يسجّل دخول الحارس ويتعامل مع سيناريوهات التحقق الثنائي.
   static Future<Map<String, dynamic>> guardLogin(
       String username,
       String password, {
@@ -265,6 +297,7 @@ class ApiService {
   // GET /auth/guard/me/
   // قد يرجع {employee:{...}} أو مباشرة {...}
   // ---------------------------------------------
+  /// يجلب الملف الشخصي من الخادم ويحدّث النسخة المحلية.
   static Future<EmployeeMe?> fetchEmployeeAndCache() async {
     final prefs = await SharedPreferences.getInstance();
     final accessRaw = await _getAccessRaw();
@@ -295,6 +328,11 @@ class ApiService {
     return null;
   }
 
+<<<<<<< HEAD
+=======
+  // قراءة الموظف من الكاش
+  /// يقرأ بيانات الموظف المخزّنة محليًا إن وُجدت.
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
   static Future<EmployeeMe?> cachedEmployee() async {
     final prefs = await SharedPreferences.getInstance();
     final raw = prefs.getString(_kEmpKey);
@@ -312,6 +350,11 @@ class ApiService {
     return await fetchEmployeeAndCache();
   }
 
+<<<<<<< HEAD
+=======
+  // تحديث الكاش (إن كان مسارك يدعم POST أو غيّره لـ GET)
+  /// يرسل طلب تحديث صريح لسيرفر الموارد البشرية ويحفظ النتيجة.
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
   static Future<EmployeeMe?> refreshEmployeeCache() async {
     final prefs = await SharedPreferences.getInstance();
     final accessRaw = await _getAccessRaw();
@@ -338,6 +381,7 @@ class ApiService {
   }
 
   // تسجيل خروج — حذف كل البيانات
+  /// يحذف كل بيانات الاعتماد المخزنة محليًا.
   static Future<void> logout() async {
     final p = await SharedPreferences.getInstance();
     await p.remove(_kAccessKeyNew);
@@ -352,6 +396,7 @@ class ApiService {
   // ---------------------------------------------
   // نسيت كلمة المرور — باسم المستخدم
   // ---------------------------------------------
+  /// يرسل رمز استعادة كلمة المرور بناءً على اسم المستخدم.
   static Future<Map<String, dynamic>> forgotByUsername(String username) async {
     try {
       final res = await _client.post(
@@ -373,6 +418,7 @@ class ApiService {
   // ---------------------------------------------
   // إعادة تعيين كلمة المرور (session_id + code + new_password)
   // ---------------------------------------------
+  /// يؤكد رمز الاستعادة ويحدد كلمة مرور جديدة.
   static Future<Map<String, dynamic>> resetBySession({
     required int sessionId,
     required String code,
@@ -398,6 +444,478 @@ class ApiService {
       return {'ok': false, 'message': 'خطأ في الشبكة: $e'};
     }
   }
+<<<<<<< HEAD
+=======
+
+  // ---------------------------------------------
+  // التقارير والطلبات
+  // ---------------------------------------------
+
+  /// يرفع تقرير الحارس مع المرفقات الاختيارية.
+  static Future<ApiResult> submitGuardReport({
+    required String reportType,
+    required String description,
+    String? locationId,
+    List<ReportAttachmentUpload> attachments = const [],
+  }) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    try {
+      http.Response res;
+      final usableAttachments = attachments
+          .where((att) => att.file.existsSync())
+          .toList(growable: false);
+
+      if (usableAttachments.isEmpty) {
+        res = await _client
+            .post(
+              _u(_pGuardReports),
+              headers: {
+                ..._jsonHeaders(),
+                'Authorization': authHeader(token),
+              },
+              body: jsonEncode({
+                'report_type': reportType,
+                'description': description,
+                if (locationId != null && locationId.isNotEmpty) 'location': locationId,
+              }),
+            )
+            .timeout(const Duration(seconds: 20));
+      } else {
+        final req = http.MultipartRequest('POST', _u(_pGuardReports));
+        req.headers.addAll({
+          'Authorization': authHeader(token),
+          'Accept': 'application/json',
+        });
+        req.fields['report_type'] = reportType;
+        req.fields['description'] = description;
+        if (locationId != null && locationId.isNotEmpty) {
+          req.fields['location'] = locationId;
+        }
+        for (final att in usableAttachments) {
+          req.files.add(await http.MultipartFile.fromPath(
+            'attachments',
+            att.file.path,
+            contentType: att.mediaType,
+          ));
+        }
+        final streamed = await req.send().timeout(const Duration(seconds: 30));
+        res = await http.Response.fromStream(streamed);
+      }
+
+      final body = _decode(res);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = body is Map<String, dynamic>
+            ? Map<String, dynamic>.from(body)
+            : {'raw': body};
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة التقارير غير متاحة (404). الرجاء التأكد من تحديث خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر إرسال التقرير. تحقق من البيانات المدخلة.');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  /// ينشئ طلبًا جديدًا (تغطية، إجازة، نقل، مواد، زي).
+  static Future<ApiResult> submitGuardRequest({
+    required String requestType,
+    required String description,
+    DateTime? leaveStart,
+    DateTime? leaveEnd,
+    List<Map<String, dynamic>>? uniformItems,
+    String? paymentMethod,
+    String? uniformLocationId,
+  }) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    final payload = <String, dynamic>{
+      'request_type': requestType,
+      'description': description,
+    };
+
+    if (requestType == 'leave') {
+      if (leaveStart != null) payload['leave_start'] = leaveStart.toIso8601String();
+      if (leaveEnd != null) payload['leave_end'] = leaveEnd.toIso8601String();
+    }
+
+    if (requestType == 'uniform') {
+      if (uniformItems != null && uniformItems.isNotEmpty) {
+        payload['uniform_items'] = uniformItems;
+      }
+      if (paymentMethod != null && paymentMethod.trim().isNotEmpty) {
+        payload['payment_method'] = paymentMethod.trim();
+      }
+      if (uniformLocationId != null && uniformLocationId.trim().isNotEmpty) {
+        payload['uniform_location_id'] = uniformLocationId.trim();
+      }
+    }
+
+    try {
+      final res = await ApiService._client
+          .post(
+            _u(_pGuardRequests),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = body is Map<String, dynamic>
+            ? Map<String, dynamic>.from(body)
+            : {'raw': body};
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة الطلبات غير متاحة (404). الرجاء التأكد من تحديث خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر إرسال الطلب. تحقق من البيانات المدخلة.');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  /// يرسل طلب سلفة مالية جديد.
+  static Future<ApiResult> submitGuardAdvance({
+    required double amount,
+    String? reason,
+  }) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    final payload = {
+      'amount': amount,
+      if (reason != null && reason.trim().isNotEmpty) 'reason': reason.trim(),
+    };
+
+    try {
+      final res = await _client
+          .post(
+            _u(_pGuardAdvances),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200 || res.statusCode == 201) {
+        final data = body is Map<String, dynamic>
+            ? Map<String, dynamic>.from(body)
+            : {'raw': body};
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة السلف غير متاحة (404). الرجاء التأكد من تفعيلها في خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر إرسال طلب السلفة. تحقق من البيانات المدخلة.');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  /// يجلب قائمة السلف السابقة من الخادم.
+  static Future<ApiResult> fetchGuardAdvances() async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    try {
+      final res = await _client
+          .get(
+            _u(_pGuardAdvances),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200) {
+        List<dynamic> results = const [];
+        if (body is List) {
+          results = List<dynamic>.from(body);
+        } else if (body is Map && body['results'] is List) {
+          results = List<dynamic>.from(body['results'] as List);
+        }
+        final data = <String, dynamic>{
+          'results': results,
+          'raw': body,
+        };
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة السلف غير متاحة (404). الرجاء التأكد من تفعيلها في خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر تحميل السلف');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  /// يجلب طلبات الحارس مع خيار تضمين الطلبات المغلقة.
+  static Future<ApiResult> fetchGuardRequests({bool includeClosed = false}) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    final basePath = _joinUrl(kBaseUrl, _pGuardRequests);
+    final uri = includeClosed
+        ? Uri.parse('$basePath?include_closed=true')
+        : Uri.parse(basePath);
+
+    try {
+      final res = await _client
+          .get(
+            uri,
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200) {
+        List<dynamic> results = const [];
+        if (body is List) {
+          results = List<dynamic>.from(body);
+        } else if (body is Map && body['results'] is List) {
+          results = List<dynamic>.from(body['results'] as List);
+        }
+        final data = <String, dynamic>{
+          'results': results,
+          'raw': body,
+        };
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      if (res.statusCode == 404) {
+        return (
+          ok: false,
+          message: 'واجهة الطلبات غير متاحة (404). الرجاء التأكد من تفعيلها في خادم sanam_hr.',
+          data: body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null,
+        );
+      }
+
+      final message = _messageFromBody(body, 'تعذّر تحميل الطلبات');
+      final data = body is Map<String, dynamic>
+          ? Map<String, dynamic>.from(body)
+          : (body is Map
+              ? _stringMap(body as Map)
+              : null);
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  /// يسترجع المهام مع إمكانية تصفية الحالة.
+  static Future<ApiResult> fetchGuardTasks({String? statusFilter}) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    Uri uri = _u(_pGuardTasks);
+    if (statusFilter != null && statusFilter.trim().isNotEmpty) {
+      final current = Map<String, String>.from(uri.queryParameters);
+      current['status'] = statusFilter.trim();
+      uri = uri.replace(queryParameters: current);
+    }
+
+    try {
+      final res = await _client
+          .get(
+            uri,
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200) {
+        final List<dynamic> rawList;
+        if (body is List) {
+          rawList = List<dynamic>.from(body);
+        } else if (body is Map && body['results'] is List) {
+          rawList = List<dynamic>.from(body['results'] as List);
+        } else {
+          rawList = const [];
+        }
+
+        final results = rawList
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(growable: false);
+
+        return (ok: true, message: 'ok', data: {'results': results});
+      }
+
+      final message = _messageFromBody(body, 'تعذّر تحميل المهام.');
+      final data = body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null;
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  /// يحدّث حالة مهمة محددة ويضيف ملاحظات اختيارية.
+  static Future<ApiResult> updateGuardTask({
+    required String taskId,
+    required String status,
+    String? statusNote,
+  }) async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    final payload = <String, dynamic>{
+      'status': status,
+      if (statusNote != null) 'status_note': statusNote,
+    };
+
+    try {
+      final res = await _client
+          .patch(
+            Uri.parse('${_joinUrl(kBaseUrl, _pGuardTasks)}$taskId/'),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+            body: jsonEncode(payload),
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200) {
+        final data = body is Map<String, dynamic>
+            ? Map<String, dynamic>.from(body)
+            : (body is Map ? _stringMap(body as Map) : null);
+        return (ok: true, message: 'ok', data: data);
+      }
+
+      final message = _messageFromBody(body, 'تعذّر تحديث المهمة.');
+      final data = body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null;
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+
+  /// يجلب قائمة أصناف الزي المسموح بطلبها.
+  static Future<ApiResult> fetchUniformItems() async {
+    final token = await _getAccessRaw();
+    if (token == null || token.isEmpty) {
+      return (ok: false, message: 'يرجى تسجيل الدخول مجددًا.', data: null);
+    }
+
+    try {
+      final res = await _client
+          .get(
+            _u(_pUniformItems),
+            headers: {
+              ..._jsonHeaders(),
+              'Authorization': authHeader(token),
+            },
+          )
+          .timeout(const Duration(seconds: 20));
+
+      final body = _decode(res);
+      if (res.statusCode == 200) {
+        final List<dynamic> rawList;
+        if (body is Map && body['results'] is List) {
+          rawList = List<dynamic>.from(body['results'] as List);
+        } else if (body is List) {
+          rawList = List<dynamic>.from(body);
+        } else {
+          rawList = const [];
+        }
+        final results = rawList
+            .whereType<Map>()
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList(growable: false);
+        return (ok: true, message: 'ok', data: {'results': results});
+      }
+
+      final message = _messageFromBody(body, 'تعذّر تحميل قائمة الزي.');
+      final data = body is Map<String, dynamic> ? Map<String, dynamic>.from(body) : null;
+      return (ok: false, message: message, data: data);
+    } catch (e) {
+      return (ok: false, message: 'خطأ في الشبكة: $e', data: null);
+    }
+  }
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 }
 
 // ========================================================
@@ -446,6 +964,60 @@ Future<Position> getBestFix({
   return best;
 }
 
+<<<<<<< HEAD
+=======
+Future<ApiResult> sendAttendanceToServer(
+  Map<String, dynamic> data, {
+  String baseUrl = kBaseUrl,
+  String? tokenOverride,
+  File? earlyAttachment,
+}) async {
+  final token = tokenOverride ?? await ApiService.getAccessToken();
+  if (token == null || token.isEmpty) {
+    return (ok: false, message: 'يرجى تسجيل الدخول أولاً.', data: null);
+  }
+
+  try {
+    final uri = Uri.parse(_joinUrl(baseUrl, _pAttendanceCheck));
+
+    http.Response res;
+    if (earlyAttachment != null) {
+      final req = http.MultipartRequest('POST', uri);
+      req.headers.addAll({'Authorization': authHeader(token)});
+      data.forEach((key, value) {
+        if (value == null) return;
+        req.fields[key] = value.toString();
+      });
+      req.files.add(await http.MultipartFile.fromPath('early_attachment', earlyAttachment.path));
+      final streamed = await req.send();
+      res = await http.Response.fromStream(streamed);
+    } else {
+      res = await http.post(
+        uri,
+        headers: {
+          'Authorization': authHeader(token),
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+        body: jsonEncode(data),
+      );
+    }
+
+    final text = utf8.decode(res.bodyBytes);
+    Map<String, dynamic>? decoded;
+    try { decoded = jsonDecode(text) as Map<String, dynamic>; } catch (_) {}
+
+    final okStatus = res.statusCode >= 200 && res.statusCode < 300;
+    final ok = okStatus && (decoded?['ok'] ?? true);
+    final message = decoded?['detail']?.toString() ?? (ok ? 'تم تنفيذ العملية بنجاح' : 'تعذر تنفيذ الطلب');
+    return (ok: ok, message: message, data: decoded);
+  } catch (e) {
+    return (ok: false, message: 'خطأ في الاتصال: $e', data: null);
+  }
+}
+
+/// إرسال حضور/انصراف (يلتقط الموقع داخليًا)
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 Future<ApiResult> sendAttendance({
   required String baseUrl,      // مثال: http://31.97.158.157/api/v1
   required String token,        // التوكن الخام أو "Bearer <...>"
@@ -454,6 +1026,9 @@ Future<ApiResult> sendAttendance({
   Duration window = const Duration(seconds: 8),
   String? earlyReason,
   File? earlyAttachment,
+  bool biometricVerified = false,
+  String? biometricMethod,
+  int biometricAttempts = 0,
 }) async {
   try {
     final pos = await getBestFix(window: window);
@@ -465,6 +1040,9 @@ Future<ApiResult> sendAttendance({
       pos: pos,
       earlyReason: earlyReason,
       earlyAttachment: earlyAttachment,
+      biometricVerified: biometricVerified,
+      biometricMethod: biometricMethod,
+      biometricAttempts: biometricAttempts,
     );
   } catch (e) {
     return (ok: false, message: e.toString(), data: null);
@@ -480,10 +1058,11 @@ Future<ApiResult> sendAttendanceWithPosition({
   required Position pos,
   String? earlyReason,
   File? earlyAttachment,
+  bool biometricVerified = false,
+  String? biometricMethod,
+  int biometricAttempts = 0,
 }) async {
   try {
-    final uri = Uri.parse(_joinUrl(baseUrl, _pAttendanceCheck));
-
     final Map<String, dynamic> body = {
       'location_id': locationId,
       'action': action,
@@ -491,39 +1070,17 @@ Future<ApiResult> sendAttendanceWithPosition({
       'lng': pos.longitude,
       'accuracy': pos.accuracy,
       if (earlyReason != null && earlyReason.isNotEmpty) 'early_reason': earlyReason,
+      'biometric_verified': biometricVerified,
+      'biometric_method': biometricMethod ?? '',
+      'biometric_attempts': biometricAttempts,
     };
 
-    http.Response res;
-    if (earlyAttachment != null) {
-      // مرفق اختياري لانصراف مبكر
-      final req = http.MultipartRequest('POST', uri);
-      req.headers.addAll({'Authorization': authHeader(token)});
-      body.forEach((k, v) => req.fields[k] = v.toString());
-      req.files.add(await http.MultipartFile.fromPath('early_attachment', earlyAttachment.path));
-      final streamed = await req.send();
-      res = await http.Response.fromStream(streamed);
-    } else {
-      res = await http.post(
-        uri,
-        headers: {
-          'Content-Type': 'application/json',
-          'Accept': 'application/json',
-          'Authorization': authHeader(token),
-        },
-        body: jsonEncode(body),
-      );
-    }
-
-    final text = utf8.decode(res.bodyBytes);
-    Map<String, dynamic>? data;
-    try { data = jsonDecode(text) as Map<String, dynamic>; } catch (_) {}
-
-    // ok = 200/201 + ok=true (إن وُجد)
-    final ok = (res.statusCode == 200 || res.statusCode == 201) && (data?['ok'] ?? true);
-    // الرسالة بالعربي إن وُجدت، وإلا fallback لطيف
-    final msg = (data?['detail']?.toString() ?? (ok ? 'تم تنفيذ العملية بنجاح' : 'تعذر تنفيذ الطلب'));
-
-    return (ok: ok, message: msg, data: data);
+    return await sendAttendanceToServer(
+      body,
+      baseUrl: baseUrl,
+      tokenOverride: token,
+      earlyAttachment: earlyAttachment,
+    );
   } catch (e) {
     return (ok: false, message: 'خطأ في الاتصال: $e', data: null);
   }
@@ -558,6 +1115,142 @@ Future<ApiResult> resolveMyLocation({
     return (ok: ok, message: msg, data: data);
   } catch (e) {
     return (ok: false, message: e.toString(), data: null);
+  }
+}
+
+Future<ApiResult> fetchLatestAttendanceRecord({
+  String baseUrl = kBaseUrl,
+}) async {
+  final token = await _getAccessRaw();
+  if (token == null || token.isEmpty) {
+    return (ok: false, message: 'يرجى تسجيل الدخول أولاً.', data: null);
+  }
+
+  final headers = {
+    'Accept': 'application/json',
+    'Authorization': authHeader(token),
+  };
+
+  final candidatePaths = <String>[
+    _pAttendanceLatest,
+    '${_pAttendanceCheck}latest/',
+    '${_pAttendanceCheck}last/',
+    '/attendance/latest/',
+    '/attendance/last/',
+    '${_pAttendanceCheck}?latest=1',
+    '${_pAttendanceCheck}?ordering=-recorded_at&limit=1',
+    _pAttendanceCheck,
+  ];
+
+  String? lastError;
+  for (final path in candidatePaths) {
+    if (path.isEmpty) continue;
+    final uri = Uri.parse(_joinUrl(baseUrl, path));
+    try {
+      final res = await ApiService._client
+          .get(uri, headers: headers)
+          .timeout(const Duration(seconds: 20));
+      final body = _decode(res);
+
+      if (res.statusCode >= 200 && res.statusCode < 300) {
+        final record = _extractLatestAttendanceRecord(body);
+        if (record != null) {
+          final msg = _messageFromBody(body, 'تم تحميل آخر تسجيل.');
+          return (ok: true, message: msg, data: record);
+        }
+
+        if (body is Map<String, dynamic>) {
+          final okField = body['ok'];
+          if (okField is bool && !okField) {
+            final msg = _messageFromBody(body, 'تعذر تحميل آخر تسجيل.');
+            return (
+              ok: false,
+              message: msg,
+              data: Map<String, dynamic>.from(body),
+            );
+          }
+
+          try {
+            return (
+              ok: true,
+              message: _messageFromBody(body, 'تم تحميل آخر تسجيل.'),
+              data: Map<String, dynamic>.from(body),
+            );
+          } catch (_) {
+            // تجاهل وتحاول مسارًا آخر
+          }
+        } else if (body is List && body.isNotEmpty) {
+          final first = body.first;
+          if (first is Map) {
+            final map = Map<String, dynamic>.from(first as Map);
+            return (ok: true, message: 'تم تحميل آخر تسجيل.', data: map);
+          }
+        }
+
+        lastError = 'لا توجد بيانات حضور متاحة.';
+        continue;
+      }
+
+      if (res.statusCode == 404 || res.statusCode == 405) {
+        lastError = _messageFromBody(body, 'المسار ${uri.path} غير متاح.');
+        continue;
+      }
+
+      lastError = _messageFromBody(
+        body,
+        'تعذر تحميل آخر تسجيل (${res.statusCode}).',
+      );
+    } on TimeoutException {
+      lastError = 'انتهت مهلة الاتصال بالخادم.';
+    } catch (e) {
+      lastError = 'خطأ في الاتصال: $e';
+    }
+  }
+
+  return (ok: false, message: lastError ?? 'تعذر تحميل آخر تسجيل.', data: null);
+}
+
+Future<ApiResult> sendLocationPing({
+  String baseUrl = kBaseUrl,
+  required String token,
+  Position? pos,
+  double? latitude,
+  double? longitude,
+  double? accuracyOverride,
+  DateTime? recordedAt,
+}) async {
+  try {
+    final lat = latitude ?? pos?.latitude;
+    final lng = longitude ?? pos?.longitude;
+    if (lat == null || lng == null) {
+      return (ok: false, message: 'إحداثيات الموقع غير متاحة لإرسال التتبع.', data: null);
+    }
+    final accuracy = accuracyOverride ?? pos?.accuracy;
+    final uri = Uri.parse(_joinUrl(baseUrl, _pLocationPing));
+    final body = <String, dynamic>{
+      'lat': lat,
+      'lng': lng,
+      'accuracy': accuracy,
+      if (recordedAt != null) 'recorded_at': recordedAt.toUtc().toIso8601String(),
+    };
+    final res = await http.post(
+      uri,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': authHeader(token),
+      },
+      body: jsonEncode(body),
+    );
+
+    final text = utf8.decode(res.bodyBytes);
+    Map<String, dynamic>? data;
+    try { data = jsonDecode(text) as Map<String, dynamic>; } catch (_) {}
+    final ok = res.statusCode >= 200 && res.statusCode < 300 && (data?['ok'] ?? true);
+    final msg = data?['detail']?.toString() ?? (ok ? 'تم تحديث الموقع.' : 'تعذر إرسال تحديث الموقع');
+    return (ok: ok, message: msg, data: data);
+  } catch (e) {
+    return (ok: false, message: 'خطأ في الاتصال: $e', data: null);
   }
 }
 
@@ -664,4 +1357,65 @@ Future<ApiResult> earlyCheckOutAuto({
   } catch (e) {
     return (ok: false, message: 'تعذّر إتمام الانصراف المبكر: $e', data: null);
   }
+}
+
+Map<String, dynamic>? _extractLatestAttendanceRecord(dynamic body) {
+  if (body is Map<String, dynamic>) {
+    for (final key in ['data', 'latest', 'last', 'record', 'result']) {
+      final value = body[key];
+      if (value is Map) {
+        try {
+          return Map<String, dynamic>.from(value as Map);
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+
+    for (final key in ['results', 'records', 'items']) {
+      final value = body[key];
+      if (value is List && value.isNotEmpty) {
+        final first = value.first;
+        if (first is Map) {
+          try {
+            return Map<String, dynamic>.from(first as Map);
+          } catch (_) {
+            continue;
+          }
+        }
+      }
+    }
+
+    final hasAction = body.containsKey('action') || body.containsKey('attendance_action');
+    final hasTime = body.containsKey('recorded_at') || body.containsKey('timestamp') || body.containsKey('time');
+    if (hasAction || hasTime) {
+      try {
+        return Map<String, dynamic>.from(body);
+      } catch (_) {}
+    }
+
+    return null;
+  }
+
+  if (body is Map) {
+    try {
+      return Map<String, dynamic>.from(body as Map);
+    } catch (_) {
+      // fallthrough
+    }
+  }
+
+  if (body is List && body.isNotEmpty) {
+    for (final item in body) {
+      if (item is Map) {
+        try {
+          return Map<String, dynamic>.from(item as Map);
+        } catch (_) {
+          continue;
+        }
+      }
+    }
+  }
+
+  return null;
 }

@@ -1,4 +1,7 @@
+<<<<<<< HEAD
 /// شاشة لعرض مهام الحارس مع إمكانية تحديث حالتها.
+=======
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
@@ -6,7 +9,10 @@ import '../l10n/app_localizations.dart';
 import '../models/employee.dart';
 import '../services/api.dart';
 
+<<<<<<< HEAD
 /// تعرض بطاقات المهام والعمليات المرتبطة بها.
+=======
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 class GuardTasksScreen extends StatefulWidget {
   const GuardTasksScreen({super.key});
 
@@ -14,7 +20,10 @@ class GuardTasksScreen extends StatefulWidget {
   State<GuardTasksScreen> createState() => _GuardTasksScreenState();
 }
 
+<<<<<<< HEAD
 /// يدير تحميل المهام، التحديث، وإظهار الحوارات.
+=======
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 class _GuardTasksScreenState extends State<GuardTasksScreen> {
   late Future<List<TaskMini>> _future;
   bool _updating = false;

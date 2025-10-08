@@ -316,7 +316,10 @@ class _PendingAttachment {
       file.name.isNotEmpty ? file.name : file.path.split('/').last;
 }
 
+<<<<<<< HEAD
 /// خيار متاح في قائمة الزي مع السعر التعريفي.
+=======
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 class _UniformItemOption {
   _UniformItemOption({
     required this.id,
@@ -329,7 +332,10 @@ class _UniformItemOption {
   final double price;
 }
 
+<<<<<<< HEAD
 /// اختيار المستخدم من أصناف الزي مع الكمية والملاحظات.
+=======
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 class _UniformSelection {
   _UniformSelection({
     required this.option,
@@ -344,7 +350,10 @@ class _UniformSelection {
   double get total => option.price * quantity;
 }
 
+<<<<<<< HEAD
 /// يمكّن الحارس من إنشاء طلبات (تغطية، إجازة، نقل، مواد، زي).
+=======
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 class CreateRequestScreen extends StatefulWidget {
   const CreateRequestScreen({super.key, this.initialType});
 
@@ -869,6 +878,143 @@ class _CreateRequestScreenState extends State<CreateRequestScreen> {
       ),
     );
   }
+<<<<<<< HEAD
+=======
+}
+
+class _UniformSelectionDialog extends StatefulWidget {
+  const _UniformSelectionDialog({
+    required this.options,
+    this.initial,
+  });
+
+  final List<_UniformItemOption> options;
+  final _UniformSelection? initial;
+
+  @override
+  State<_UniformSelectionDialog> createState() => _UniformSelectionDialogState();
+}
+
+class _UniformSelectionDialogState extends State<_UniformSelectionDialog> {
+  final _formKey = GlobalKey<FormState>();
+  late _UniformItemOption? _selectedOption;
+  late final TextEditingController _quantityController;
+  late final TextEditingController _notesController;
+
+  @override
+  void initState() {
+    super.initState();
+    _selectedOption = _initialOption();
+    _quantityController = TextEditingController(
+      text: (widget.initial?.quantity ?? 1).toString(),
+    );
+    _notesController = TextEditingController(text: widget.initial?.notes ?? '');
+  }
+
+  @override
+  void dispose() {
+    _quantityController.dispose();
+    _notesController.dispose();
+    super.dispose();
+  }
+
+  _UniformItemOption? _initialOption() {
+    if (widget.options.isEmpty) return null;
+    if (widget.initial == null) {
+      return widget.options.first;
+    }
+    final initialId = widget.initial!.option.id;
+    return widget.options.firstWhere(
+      (option) => option.id == initialId,
+      orElse: () => widget.options.first,
+    );
+  }
+
+  void _confirm() {
+    if (!(_formKey.currentState?.validate() ?? false)) {
+      return;
+    }
+    final quantity = int.parse(_quantityController.text.trim());
+    final notes = _notesController.text.trim();
+    Navigator.of(context).pop(
+      _UniformSelection(
+        option: _selectedOption!,
+        quantity: quantity,
+        notes: notes.isEmpty ? null : notes,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = AppLocalizations.of(context)!;
+
+    return AlertDialog(
+      title: Text(
+        widget.initial == null ? t.uniform_add_item : t.uniform_edit_item,
+      ),
+      content: SingleChildScrollView(
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<_UniformItemOption>(
+                value: _selectedOption,
+                items: widget.options
+                    .map(
+                      (option) => DropdownMenuItem(
+                        value: option,
+                        child: Text(
+                          '${option.name} • ${option.price.toStringAsFixed(2)}',
+                        ),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _selectedOption = value),
+                validator: (value) =>
+                    value == null ? t.uniform_select_item : null,
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _quantityController,
+                keyboardType: const TextInputType.numberWithOptions(
+                  signed: false,
+                  decimal: false,
+                ),
+                decoration: InputDecoration(labelText: t.uniform_quantity),
+                validator: (value) {
+                  final parsed = int.tryParse((value ?? '').trim());
+                  if (parsed == null || parsed <= 0) {
+                    return t.uniform_quantity_invalid;
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: _notesController,
+                decoration: InputDecoration(labelText: t.uniform_item_notes),
+                minLines: 1,
+                maxLines: 3,
+              ),
+            ],
+          ),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(null),
+          child: Text(t.task_cancel),
+        ),
+        FilledButton(
+          onPressed: _selectedOption == null ? null : _confirm,
+          child: Text(t.task_confirm),
+        ),
+      ],
+    );
+  }
+>>>>>>> 405cf15 (توثيق الجهاز وتفعيل البصمه والتتبع للحارس)
 }
 
 /// حوار مصغّر لاختيار صنف الزي وتحديد الكمية والملاحظات.

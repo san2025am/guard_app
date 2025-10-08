@@ -1,16 +1,16 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:geolocator/geolocator.dart';
-
+import 'package:intl/intl.dart';
+import 'package:security_quard/services/biometric_auth.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-
 import '../services/api.dart';  // لو عندك AppSettings (الثيم/اللغة)
-
-import 'package:intl/intl.dart';
 
 
 class AttendancePage extends StatefulWidget {
@@ -20,31 +20,16 @@ class AttendancePage extends StatefulWidget {
 }
 
 class _AttendancePageState extends State<AttendancePage> {
-
   static const String _kLastAttendanceStateKey = 'attendance_last_state';
-
+  static const String _kPendingPingCacheKey = 'location_pending_pings_v1';
+  static const int _kPendingPingMax = 500;
+  // نرسل التتبع كل دقيقة ونحتفظ به عند عدم توفر الاتصال بالشبكة.
+  static const Duration _pingIntervalInside = Duration(minutes: 1);
+  static const Duration _pingIntervalOutside = Duration(minutes: 1);
   bool _checkedIn = false;
   DateTime? _time;
   bool _loading = false;
-  String? _lastAction; // check_in / check_out / early_check_out
-
-  String? _locationId;   // UUID نص
-  String? _locationName; // اسم الموقع
-  String? _clientName;   // اسم العميل
-  String? _lastServerMessage;
-  Map<String, dynamic>? _lastData;
-
-  bool _unrestricted = false;
-  String? _shiftHint; // نص نافذة/سماحات
-  String? _locationsSummary;
-
-  BiometricMethod? _biometricMethod;
-
-  Timer? _pollTimer;    // يتحقق هل السجل ما يزال موجوداً
-  Timer? _refreshTimer; // يجلب آخر سجل من السيرفر
-  bool _checkedIn = false;
-  DateTime? _time;
-  bool _loading = false;
+  String? _lastAction; // آخر إجراء تم تسجيله (check_in / check_out / early_check_out)
 
   String? _locationId;      // UUID نص
   String? _locationName;    // اسم الموقع
@@ -53,59 +38,59 @@ class _AttendancePageState extends State<AttendancePage> {
   Map<String, dynamic>? _lastData;
 
   // قائمة المواقع المتاحة للحارس (لمعرّفات وأسماء وعملاء) لاختيارها يدويًا
-  List<dynamic> _locations = [];
-
   // عرض حالة “غير مقيّدة” + تلميح نصي
   bool _unrestricted = false;
-  String? _shiftHint; // نص موجز عن النافذة/السماحا
+  String? _shiftHint; // نص موجز عن النافذة/السماحات
+  String? _locationsSummary;
+  Timer? _locationPingTimer;
+  bool _locationPingInFlight = false;
+  bool _locationViolationNotified = false;
+  Duration _configuredPingIntervalInside = _pingIntervalInside;
+  Duration _configuredPingIntervalOutside = _pingIntervalOutside;
+  Duration _currentPingInterval = _pingIntervalInside;
+  bool _shouldMonitorLocation = false;
+  DateTime? _shiftWindowStart;
+  DateTime? _shiftWindowEnd;
+  bool _withinShift = true;
+  String? _currentShiftName;
+  String? _shiftAssignmentLocationName;
+  bool _shiftMatchesLocation = true;
+  bool _latestRecordLoading = false;
+  Timer? _autoRefreshTimer;
 
   @override
   void initState() {
     super.initState();
     _bootstrap();
+    _autoRefreshTimer = Timer.periodic(const Duration(seconds: 10), (_) {
+      if (!mounted) return;
+      _refreshLastAttendanceFromServer();
+    });
   }
 
-  Future<void> _bootstrap() async {
+  Future<void> _bootstrap({bool forceEmployeeRefresh = false}) async {
     final token = await ApiService.getAccessToken();
     if (!mounted) return;
     if (token == null || token.isEmpty) {
+      _stopLocationMonitoring();
       if (!mounted) return;
       Navigator.of(context).pushReplacementNamed('/login');
       return;
     }
 
+    await _flushPendingLocationPings(token);
     await _checkCurrentAttendanceStatus();
 
     // من الكاش
-    final emp = await ApiService.ensureEmployeeCached();
+    final emp = forceEmployeeRefresh
+        ? await ApiService.refreshEmployeeCache() ?? await ApiService.ensureEmployeeCached()
+        : await ApiService.ensureEmployeeCached();
     if (emp != null && emp.locations != null && emp.locations!.isNotEmpty) {
       // استخدم أول موقع مخصّص للحارس لتعبئة الاسم والمعرّف واسم العميل إن وجد
       final firstLoc = emp.locations!.first;
       setState(() {
         _locationId = firstLoc.id?.toString();
         _locationName = firstLoc.name;
-        // خزّن كل المواقع المتاحة لاستخدامها في اختيار يدوي لاحقًا
-        try {
-          final locs = emp.locations;
-          if (locs != null) {
-            // إزالة العناصر المكررة وفقًا للمعرّف لتجنب ظهور عناصر ذات نفس القيمة في DropdownButton
-            final List<dynamic> uniques = [];
-            final Set<String> seenIds = {};
-            for (final loc in locs) {
-              try {
-                final dyn = loc as dynamic;
-                final id = (dyn.id ?? dyn['id']).toString();
-                if (!seenIds.contains(id)) {
-                  seenIds.add(id);
-                  uniques.add(loc);
-                }
-              } catch (_) {
-                // عند الخطأ نتجاهل هذا الموقع
-              }
-            }
-            _locations = uniques;
-          }
-        } catch (_) {}
         try {
           final dyn = firstLoc as dynamic;
           final cName = (dyn.client_name ?? dyn.clientName);
@@ -113,6 +98,7 @@ class _AttendancePageState extends State<AttendancePage> {
             _clientName = cName.toString();
           }
         } catch (_) {}
+        _locationsSummary = _composeLocationsSummary(emp.locations);
       });
       await _loadUnrestrictedFromCache();
 
@@ -134,8 +120,15 @@ class _AttendancePageState extends State<AttendancePage> {
             if (cName != null && cName.isNotEmpty) _clientName = cName;
           });
         }
+        _applyMonitoringConfig(
+          _asMap(r.data?['monitoring']),
+          nextPingSeconds: _asInt(r.data?['next_ping_seconds']),
+        );
       } catch (_) {}
     } else {
+      setState(() {
+        _locationsSummary = null;
+      });
       // تحديد تلقائي عبر الإحداثيات
       try {
         final pos = await getBestFix();
@@ -156,10 +149,313 @@ class _AttendancePageState extends State<AttendancePage> {
         } else {
           _toast('لم يتم تحديد موقع العمل تلقائيًا: ${r.message}');
         }
+        _applyMonitoringConfig(
+          _asMap(r.data?['monitoring']),
+          nextPingSeconds: _asInt(r.data?['next_ping_seconds']),
+        );
       } catch (e) {
         _toast('خطأ في تحديد الموقع: $e');
       }
       await _loadUnrestrictedFromCache();
+    }
+    if (mounted) {
+      _updateLocationMonitoring(_checkedIn);
+    }
+
+    await _refreshLastAttendanceFromServer();
+  }
+
+  void _startLocationMonitoring([Duration? interval]) {
+    final target = interval ?? _configuredPingIntervalInside;
+    _currentPingInterval = target;
+    _shouldMonitorLocation = true;
+    _locationPingTimer?.cancel();
+    _locationPingTimer = Timer.periodic(target, (_) => _sendLocationPing());
+  }
+
+  void _stopLocationMonitoring() {
+    _locationPingTimer?.cancel();
+    _locationPingTimer = null;
+    _currentPingInterval = _configuredPingIntervalInside;
+    _locationPingInFlight = false;
+    _locationViolationNotified = false;
+    _shouldMonitorLocation = false;
+  }
+
+  void _updateLocationMonitoring(bool enable, {Duration? interval}) {
+    if (enable) {
+      final target = interval ?? _configuredPingIntervalInside;
+      if (_shouldMonitorLocation && _locationPingTimer != null && target == _currentPingInterval) {
+        return;
+      }
+      _startLocationMonitoring(target);
+    } else {
+      if (!_shouldMonitorLocation) return;
+      _stopLocationMonitoring();
+    }
+  }
+
+  Map<String, dynamic>? _asMap(dynamic value) {
+    if (value is Map<String, dynamic>) return value;
+    if (value is Map) {
+      try {
+        return Map<String, dynamic>.from(value as Map);
+      } catch (_) {
+        return null;
+      }
+    }
+    return null;
+  }
+
+  int? _asInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) {
+      final trimmed = value.trim();
+      if (trimmed.isEmpty) return null;
+      return int.tryParse(trimmed);
+    }
+    return null;
+  }
+
+  bool? _asBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) {
+      final lower = value.trim().toLowerCase();
+      if (lower == 'true' || lower == '1' || lower == 'yes') return true;
+      if (lower == 'false' || lower == '0' || lower == 'no') return false;
+    }
+    return null;
+  }
+
+  void _applyMonitoringConfig(Map<String, dynamic>? monitoring, {int? nextPingSeconds}) {
+    if (!mounted || monitoring == null) return;
+    final map = Map<String, dynamic>.from(monitoring);
+    final active = _asBool(map['active']);
+    final pingSeconds = _asInt(map['ping_interval_seconds']);
+    final outsideSeconds = _asInt(map['suggested_outside_ping_seconds'] ?? map['outside_ping_interval_seconds']);
+    final insideDuration = (pingSeconds != null && pingSeconds > 0)
+        ? Duration(seconds: pingSeconds)
+        : _pingIntervalInside;
+    final outsideDuration = (outsideSeconds != null && outsideSeconds > 0)
+        ? Duration(seconds: outsideSeconds)
+        : Duration(seconds: math.max(60, (insideDuration.inSeconds / 2).round()));
+    final nextSeconds = nextPingSeconds ?? _asInt(map['next_ping_seconds']);
+    final nextDuration = (nextSeconds != null && nextSeconds > 0)
+        ? Duration(seconds: nextSeconds)
+        : null;
+
+    setState(() {
+      _configuredPingIntervalInside = insideDuration;
+      _configuredPingIntervalOutside = outsideDuration;
+    });
+
+    if (active == true) {
+      _updateLocationMonitoring(true, interval: nextDuration ?? insideDuration);
+    } else if (active == false) {
+      _updateLocationMonitoring(false);
+    } else if (active == null) {
+      if (_shouldMonitorLocation) {
+        _updateLocationMonitoring(true, interval: nextDuration ?? insideDuration);
+      } else if (_checkedIn) {
+        _updateLocationMonitoring(true, interval: nextDuration ?? insideDuration);
+      }
+    }
+  }
+
+  bool get _canPerformAttendanceActions => _unrestricted || _withinShift;
+
+  void _applyShiftWindow({
+    DateTime? start,
+    DateTime? end,
+    bool? withinShift,
+  }) {
+    if (!mounted) return;
+    setState(() {
+      _shiftWindowStart = start;
+      _shiftWindowEnd = end;
+      if (withinShift != null) {
+        _withinShift = withinShift;
+      }
+    });
+  }
+
+  DateTime? _parseShiftInstant(dynamic value) {
+    if (value == null) return null;
+    return _tryParseDateTime(value);
+  }
+
+  Future<List<Map<String, dynamic>>> _loadPendingLocationPings() async {
+    final sp = await SharedPreferences.getInstance();
+    final raw = sp.getString(_kPendingPingCacheKey);
+    if (raw == null || raw.isEmpty) return <Map<String, dynamic>>[];
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is List) {
+        return decoded
+            .map((item) => item is Map ? Map<String, dynamic>.from(item as Map) : null)
+            .whereType<Map<String, dynamic>>()
+            .toList();
+      }
+    } catch (_) {
+      // تجاهل أي خلل في التخزين ونبدأ بقائمة جديدة.
+    }
+    return <Map<String, dynamic>>[];
+  }
+
+  Future<void> _savePendingLocationPings(List<Map<String, dynamic>> items) async {
+    final sp = await SharedPreferences.getInstance();
+    if (items.isEmpty) {
+      await sp.remove(_kPendingPingCacheKey);
+    } else {
+      await sp.setString(_kPendingPingCacheKey, jsonEncode(items));
+    }
+  }
+
+  Future<void> _queuePendingLocationPing(Map<String, dynamic> ping) async {
+    final items = await _loadPendingLocationPings();
+    items.add(ping);
+    if (items.length > _kPendingPingMax) {
+      items.removeRange(0, items.length - _kPendingPingMax);
+    }
+    await _savePendingLocationPings(items);
+  }
+
+  bool _shouldRetryPing(ApiResult res) {
+    if (res.ok) return false;
+    if (res.data != null && res.data!.isNotEmpty) return false;
+    final lower = res.message.toLowerCase();
+    return lower.contains('الاتصال') ||
+        lower.contains('network') ||
+        lower.contains('socket') ||
+        lower.contains('timeout');
+  }
+
+  Future<void> _flushPendingLocationPings(String token) async {
+    final pending = await _loadPendingLocationPings();
+    if (pending.isEmpty) return;
+
+    final remaining = <Map<String, dynamic>>[];
+    for (var i = 0; i < pending.length; i++) {
+      final item = pending[i];
+      final lat = (item['lat'] as num?)?.toDouble();
+      final lng = (item['lng'] as num?)?.toDouble();
+      if (lat == null || lng == null) {
+        continue;
+      }
+      final accuracy = (item['accuracy'] as num?)?.toDouble();
+      final recordedStr = item['recorded_at']?.toString();
+      DateTime? recordedAt;
+      if (recordedStr != null) {
+        recordedAt = DateTime.tryParse(recordedStr)?.toUtc();
+      }
+
+      try {
+        final res = await sendLocationPing(
+          baseUrl: kBaseUrl,
+          token: token,
+          latitude: lat,
+          longitude: lng,
+          accuracyOverride: accuracy,
+          recordedAt: recordedAt,
+        );
+        if (!res.ok && _shouldRetryPing(res)) {
+          remaining
+            ..add(item)
+            ..addAll(pending.sublist(i + 1));
+          await _savePendingLocationPings(remaining);
+          return;
+        }
+      } catch (_) {
+        remaining
+          ..add(item)
+          ..addAll(pending.sublist(i + 1));
+        await _savePendingLocationPings(remaining);
+        return;
+      }
+    }
+
+    await _savePendingLocationPings(<Map<String, dynamic>>[]);
+  }
+
+  Future<void> _sendLocationPing() async {
+    if (!mounted || !_shouldMonitorLocation || _locationPingInFlight) return;
+    final token = await ApiService.getAccessToken();
+    if (token == null || token.isEmpty) return;
+
+    final serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) return;
+    final permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+      return;
+    }
+
+    _locationPingInFlight = true;
+    Map<String, dynamic>? pendingPayload;
+    try {
+      await _flushPendingLocationPings(token);
+      final pos = await getBestFix();
+      final recordedAt = DateTime.now().toUtc();
+      pendingPayload = {
+        'lat': pos.latitude,
+        'lng': pos.longitude,
+        'accuracy': pos.accuracy,
+        'recorded_at': recordedAt.toIso8601String(),
+      };
+      final res = await sendLocationPing(
+        baseUrl: kBaseUrl,
+        token: token,
+        pos: pos,
+        accuracyOverride: pos.accuracy,
+        recordedAt: recordedAt,
+      );
+      if (!mounted) return;
+      if (!res.ok && _shouldRetryPing(res)) {
+        await _queuePendingLocationPing(pendingPayload);
+        return;
+      }
+      if (res.ok) {
+        if (res.data is Map<String, dynamic>) {
+          final data = res.data!;
+          _applyMonitoringConfig(
+            _asMap(data['monitoring']),
+            nextPingSeconds: _asInt(data['next_ping_seconds']),
+          );
+          final triggered = data['violation_triggered'] == true;
+          final violation = data['violation'] == true;
+          final withinRadius = data['within_radius'] != false;
+          if (triggered && !_locationViolationNotified) {
+            final reason = (data['violation_reason'] ?? 'تم تسجيل مخالفة الموقع.').toString();
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(reason)),
+            );
+            _locationViolationNotified = true;
+          } else if (!violation) {
+            _locationViolationNotified = false;
+          }
+          if (_shouldMonitorLocation) {
+            final shouldUseOutside = (!withinRadius || violation || triggered);
+            final targetInterval = shouldUseOutside
+                ? _configuredPingIntervalOutside
+                : _configuredPingIntervalInside;
+            if (targetInterval != _currentPingInterval) {
+              _startLocationMonitoring(targetInterval);
+            }
+          }
+        }
+        await _flushPendingLocationPings(token);
+      } else {
+        _applyMonitoringConfig(
+          _asMap(res.data?['monitoring']),
+          nextPingSeconds: _asInt(res.data?['next_ping_seconds']),
+        );
+      }
+    } catch (_) {
+      if (pendingPayload != null) {
+        await _queuePendingLocationPing(pendingPayload);
+      }
+    } finally {
+      _locationPingInFlight = false;
     }
   }
 
@@ -214,12 +510,316 @@ class _AttendancePageState extends State<AttendancePage> {
     return isInt ? '${h.toInt()} ساعة' : '${h.toStringAsFixed(1)} ساعة';
   }
 
-  Future<void> _checkCurrentAttendanceStatus() async {
-    // حتى الآن: نفترض لا يوجد سجل مفتوح
+  Future<void> _clearPersistedAttendanceState() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      await sp.remove(_kLastAttendanceStateKey);
+    } catch (_) {}
+  }
+
+  void _resetAttendanceState() {
+    if (!mounted) return;
     setState(() {
       _checkedIn = false;
+      _lastAction = null;
       _time = null;
+      _lastServerMessage = null;
+      _lastData = null;
+      _locationsSummary = null;
+      _shiftWindowStart = null;
+      _shiftWindowEnd = null;
+      _withinShift = true;
+      _currentShiftName = null;
+      _shiftAssignmentLocationName = null;
+      _shiftMatchesLocation = true;
     });
+  }
+
+  Future<void> _checkCurrentAttendanceStatus() async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      final raw = sp.getString(_kLastAttendanceStateKey);
+      if (raw == null || raw.isEmpty) {
+        _resetAttendanceState();
+        return;
+      }
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map) {
+        await _clearPersistedAttendanceState();
+        _resetAttendanceState();
+        return;
+      }
+
+      final map = Map<String, dynamic>.from(decoded as Map);
+      final rawAction = map['action']?.toString();
+      final action = _normalizeAction(rawAction) ?? rawAction;
+      final isoTime = map['time']?.toString();
+      DateTime? parsedTime;
+      if (isoTime != null && isoTime.isNotEmpty) {
+        try {
+          parsedTime = DateTime.parse(isoTime).toLocal();
+        } catch (_) {}
+      }
+
+      Map<String, dynamic>? cachedData;
+      Map<String, dynamic>? cachedMonitoring;
+      DateTime? cachedShiftStart;
+      DateTime? cachedShiftEnd;
+      bool? cachedWithinShift;
+      final dataRaw = map['data'];
+      if (dataRaw is Map) {
+        cachedData = Map<String, dynamic>.from(dataRaw as Map);
+        cachedMonitoring = _asMap(cachedData['monitoring']);
+        cachedShiftStart = _parseShiftInstant(cachedData['shift_window_start']);
+        cachedShiftEnd = _parseShiftInstant(cachedData['shift_window_end']);
+        cachedWithinShift = _asBool(cachedData['within_shift']);
+      }
+      cachedShiftStart ??= _parseShiftInstant(map['shift_window_start']);
+      cachedShiftEnd ??= _parseShiftInstant(map['shift_window_end']);
+      cachedWithinShift ??= _asBool(map['within_shift']);
+
+      final currentEmployee = await ApiService.getCachedEmployee();
+      final storedEmployeeRaw = map['employee_id']?.toString();
+      final storedEmployeeId = int.tryParse(storedEmployeeRaw ?? '');
+      final today = DateTime.now();
+      final storedDay = map['day']?.toString();
+      String? currentDayKey;
+      if (storedDay != null && storedDay.isNotEmpty) {
+        currentDayKey = storedDay;
+      } else if (parsedTime != null) {
+        currentDayKey = DateFormat('yyyy-MM-dd').format(parsedTime);
+      }
+
+      final todayKey = DateFormat('yyyy-MM-dd').format(today);
+
+      final mismatchEmployee =
+          currentEmployee != null && storedEmployeeId != null && currentEmployee.id != storedEmployeeId;
+      final missingEmployeeForNewUser = currentEmployee != null && storedEmployeeId == null;
+      final outdated = currentDayKey != null && currentDayKey != todayKey;
+
+      if (missingEmployeeForNewUser || mismatchEmployee || outdated) {
+        await _clearPersistedAttendanceState();
+        _resetAttendanceState();
+        return;
+      }
+
+      if (!mounted) return;
+      _applyShiftWindow(
+        start: cachedShiftStart,
+        end: cachedShiftEnd,
+        withinShift: cachedWithinShift,
+      );
+      setState(() {
+        _lastAction = action;
+        _checkedIn = action == 'check_in';
+        _time = parsedTime;
+        _lastServerMessage = map['message']?.toString();
+        final locName = map['location_name']?.toString();
+        if (locName != null && locName.isNotEmpty) {
+          _locationName = locName;
+        }
+        final clientName = map['client_name']?.toString();
+        if (clientName != null && clientName.isNotEmpty) {
+          _clientName = clientName;
+        }
+        _lastData = cachedData;
+        _shiftWindowStart = cachedShiftStart;
+        _shiftWindowEnd = cachedShiftEnd;
+        if (cachedWithinShift != null) {
+          _withinShift = cachedWithinShift!;
+        }
+      });
+      if (cachedMonitoring != null) {
+        _applyMonitoringConfig(cachedMonitoring);
+      }
+      final cachedShift = cachedData?['shift'] is Map ? Map<String, dynamic>.from(cachedData!['shift'] as Map) : null;
+      if (cachedShift != null) {
+        _currentShiftName = cachedShift['name']?.toString();
+        _shiftAssignmentLocationName = cachedShift['assignment_location_name']?.toString();
+        _shiftMatchesLocation = _asBool(cachedShift['matches_location']) ?? true;
+      }
+    } catch (_) {
+      await _clearPersistedAttendanceState();
+      _resetAttendanceState();
+    }
+  }
+
+  Future<void> _refreshLastAttendanceFromServer({bool showFeedback = false}) async {
+    if (!mounted || _latestRecordLoading) return;
+
+    setState(() {
+      _latestRecordLoading = true;
+    });
+
+    try {
+      final res = await fetchLatestAttendanceRecord(baseUrl: kBaseUrl);
+      if (!mounted) return;
+
+      if (res.ok && res.data != null) {
+        final data = Map<String, dynamic>.from(res.data!);
+        _applyMonitoringConfig(
+          _asMap(data['monitoring']),
+          nextPingSeconds: _asInt(data['next_ping_seconds']),
+        );
+        final message = () {
+          final detail = data['detail'] ?? data['message'];
+          if (detail is String && detail.trim().isNotEmpty) {
+            return detail.trim();
+          }
+          final fallback = res.message.trim();
+          return fallback.isNotEmpty ? fallback : null;
+        }();
+
+        final action = _normalizeAction(
+              data['action']?.toString() ??
+              data['attendance_action']?.toString() ??
+              data['type']?.toString(),
+            ) ??
+            _lastAction;
+
+        final recordedRaw = data['recorded_at'] ??
+            data['timestamp'] ??
+            data['time'] ??
+            data['checked_at'] ??
+            data['created_at'];
+        final recordedAt = _tryParseDateTime(recordedRaw);
+        final checkInAt = _tryParseDateTime(data['check_in_time']);
+        final checkOutAt = _tryParseDateTime(data['check_out_time']);
+        final effectiveTime = recordedAt ?? checkOutAt ?? checkInAt;
+        final now = DateTime.now();
+        final isToday = effectiveTime != null && _isSameDay(effectiveTime, now);
+        final monitoringMap = _asMap(data['monitoring']);
+        final monitoringActiveRaw = _asBool(monitoringMap?['active']);
+        final monitoringActive = monitoringActiveRaw ?? true;
+        final serverShouldMonitor = _asBool(data['should_monitor_location']) ?? monitoringActive;
+        final shiftData = _asMap(data['shift']);
+        final shiftName = shiftData?['name']?.toString();
+        final shiftAssignmentLocation = shiftData?['assignment_location_name']?.toString();
+        final shiftMatchesLocation = _asBool(shiftData?['matches_location']);
+        final shiftStartPrimary = _parseShiftInstant(data['shift_window_start']);
+        final shiftEndPrimary = _parseShiftInstant(data['shift_window_end']);
+        final shiftStart = _parseShiftInstant(shiftData?['window_start']) ?? shiftStartPrimary;
+        final shiftEnd = _parseShiftInstant(shiftData?['window_end']) ?? shiftEndPrimary;
+        bool withinShiftFlag = true;
+        final rawWithinShiftShift = _asBool(shiftData?['within_shift']);
+        if (rawWithinShiftShift != null) {
+          withinShiftFlag = rawWithinShiftShift;
+        } else {
+          final rawWithinShift = data['within_shift'];
+          if (rawWithinShift is bool) {
+            withinShiftFlag = rawWithinShift;
+          } else if (rawWithinShift is String) {
+            withinShiftFlag = rawWithinShift.trim().toLowerCase() != 'false';
+          }
+        }
+
+        if (effectiveTime == null || !isToday) {
+          if (!mounted) return;
+          _applyShiftWindow(
+            start: shiftStart,
+            end: shiftEnd,
+            withinShift: withinShiftFlag,
+          );
+          setState(() {
+            _lastData = null;
+            _lastAction = null;
+            _checkedIn = false;
+            _time = null;
+            _lastServerMessage = 'لم يتم تسجيل حضور اليوم. يرجى تسجيل الحضور.';
+            _currentShiftName = shiftName;
+            _shiftAssignmentLocationName = shiftAssignmentLocation;
+            _shiftMatchesLocation = shiftMatchesLocation ?? true;
+          });
+          await _clearPersistedAttendanceState();
+          _updateLocationMonitoring(false);
+          if (showFeedback && mounted) {
+            _toast('لم يتم العثور على تسجيل حضور لليوم الحالي.');
+          }
+          return;
+        }
+
+        final locName = (data['location_name'] ?? data['location'] ?? data['location_label'])?.toString();
+        final clientName = (data['client_name'] ?? data['client'])?.toString();
+
+        setState(() {
+          _lastData = data;
+          if (message != null && message.isNotEmpty) {
+            _lastServerMessage = message;
+          } else if (res.message.trim().isNotEmpty) {
+            _lastServerMessage = res.message.trim();
+          }
+          if (action != null) {
+            _lastAction = action;
+            _checkedIn = action == 'check_in';
+          }
+          if (effectiveTime != null) {
+            _time = effectiveTime;
+          }
+          if (locName != null && locName.trim().isNotEmpty) {
+            _locationName = locName.trim();
+          }
+          if (clientName != null && clientName.trim().isNotEmpty) {
+            _clientName = clientName.trim();
+          }
+          _shiftWindowStart = shiftStart;
+          _shiftWindowEnd = shiftEnd;
+          _withinShift = withinShiftFlag;
+          _currentShiftName = shiftName;
+          _shiftAssignmentLocationName = shiftAssignmentLocation;
+          _shiftMatchesLocation = shiftMatchesLocation ?? true;
+        });
+
+        bool hasCheckOut = false;
+        final rawCheckOut = data['check_out_time'];
+        if (rawCheckOut is String) {
+          hasCheckOut = rawCheckOut.trim().isNotEmpty;
+        } else if (rawCheckOut != null) {
+          hasCheckOut = true;
+        }
+        final shouldTrack = monitoringActive && (serverShouldMonitor || (isToday && withinShiftFlag && action == 'check_in' && !hasCheckOut));
+        _updateLocationMonitoring(shouldTrack);
+
+        if (action != null) {
+          await _persistLastAttendanceState(
+            action: action,
+            timestamp: effectiveTime,
+            message: _lastServerMessage,
+            data: data,
+          );
+        }
+
+        if (showFeedback && mounted) {
+          _toast('تم تحديث آخر تسجيل.');
+        }
+      } else {
+        if (!res.ok) {
+          final dataMap = res.data;
+          final detail = dataMap?['detail']?.toString().toLowerCase() ?? '';
+          final messageText = res.message.toLowerCase();
+          final mentionsNoAttendance = detail.contains('حضور') || messageText.contains('حضور');
+          if (mentionsNoAttendance || (dataMap != null && dataMap.containsKey('latest_record_id'))) {
+            _updateLocationMonitoring(false);
+          }
+        }
+        if (showFeedback && res.message.trim().isNotEmpty && mounted) {
+          _toast(res.message.trim());
+        } else if (!res.ok && res.message.trim().isNotEmpty && mounted && _lastServerMessage == null) {
+          setState(() {
+            _lastServerMessage = res.message.trim();
+          });
+        }
+        _applyMonitoringConfig(
+          _asMap(res.data?['monitoring']),
+          nextPingSeconds: _asInt(res.data?['next_ping_seconds']),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _latestRecordLoading = false;
+        });
+      }
+    }
   }
 
   void _toast(String message) {
@@ -235,6 +835,10 @@ class _AttendancePageState extends State<AttendancePage> {
     } catch (_) {
       return v.toString();
     }
+  }
+
+  bool _isSameDay(DateTime a, DateTime b) {
+    return a.year == b.year && a.month == b.month && a.day == b.day;
   }
 
   /// يتأكد من أن خدمة الموقع مفعّلة وأن التطبيق لديه الصلاحية؛ يفتح الإعدادات عند الحاجة
@@ -271,13 +875,27 @@ class _AttendancePageState extends State<AttendancePage> {
       String action, {
         String? reason,
         File? attachment,
+        BiometricAuthResult? biometricResult,
       }) async {
+    if (!_canPerformAttendanceActions) {
+      _toast('خارج الوردية المحددة، لا يمكن تنفيذ العملية الآن.');
+      return;
+    }
     // تأكد من تفعيل الموقع وصلاحياته قبل المتابعة
     final canProceed = await _ensureLocationEnabled();
     if (!canProceed) return;
     final token = await ApiService.getAccessToken();
     if (token == null || token.isEmpty) {
       _toast('يرجى تسجيل الدخول أولاً.');
+      return;
+    }
+
+    final result = biometricResult ?? await BiometricAuthService().authenticateUserWithRetries();
+    if (!result.biometricVerified) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل التحقق البيومتري بعد ${result.attempts} محاولات')),
+      );
       return;
     }
     // سيتم تحديد الموقع تلقائيًا قبل كل عملية حضور/انصراف
@@ -287,7 +905,7 @@ class _AttendancePageState extends State<AttendancePage> {
       // نلتقط أفضل إحداثيات
       final pos = await getBestFix();
 
-      // نحدد الموقع المكلّف به تلقائيًا عبر الـ API
+      // نحدد الموقع المكلّف به تلقائيًا عبر الـ API (مع قبول الخروج عن النطاق)
       final auto = await resolveMyLocation(
         baseUrl: kBaseUrl,
         token: token,
@@ -296,27 +914,73 @@ class _AttendancePageState extends State<AttendancePage> {
         accuracy: pos.accuracy,
       );
 
-      String? locId;
-      if (auto.ok && auto.data != null && auto.data!['location_id'] != null) {
-        locId = auto.data!['location_id']?.toString();
-        // حدّث معلومات الموقع والعميل من الرد
-        setState(() {
-          _locationId = locId;
-          final nm = auto.data!['name']?.toString();
-          if (nm != null && nm.isNotEmpty) _locationName = nm;
-          final cName = auto.data!['client_name']?.toString();
-          if (cName != null && cName.isNotEmpty) _clientName = cName;
-        });
+      Map<String, dynamic>? resolved = auto.data;
+      String? resolvedLocationId =
+          resolved != null ? resolved['location_id']?.toString() : null;
+      bool withinRadius = true;
+      double? distanceMeters;
+      double? allowedRadius;
+      String? resolvedName;
+      String? resolvedClient;
+      if (resolved != null) {
+        withinRadius = !(resolved['within_radius'] == false);
+        final dist = resolved['distance'];
+        if (dist is num) distanceMeters = dist.toDouble();
+        final radiusVal = resolved['radius'];
+        if (radiusVal is num) allowedRadius = radiusVal.toDouble();
+        resolvedName = resolved['name']?.toString();
+        resolvedClient = resolved['client_name']?.toString();
       }
+      final forceLocationPing = resolved != null && resolved['within_radius'] == false;
 
-      // إذا لم نستطع تحديد الموقع تلقائيًا ولا يوجد موقع مخزن مسبقًا، نعرض رسالة وننهي
-      if (locId == null && _locationId == null) {
-        _toast('لم يتم تحديد موقع العمل تلقائيًا: ${auto.message}');
+      String? locId = resolvedLocationId ?? _locationId;
+      if (locId == null) {
+        final msg = auto.message.trim();
+        _toast(msg.isNotEmpty
+            ? 'تعذر تحديد موقع العمل. يرجى مراجعة مشرفك لإسناد الموقع.'
+            : 'لا يوجد موقع مخصص لك حالياً، لا يمكن متابعة العملية.');
         return;
       }
+      // حدّث معلومات الموقع والعميل من الرد
+      setState(() {
+        _locationId = locId;
+        if (resolvedName != null && resolvedName.isNotEmpty) {
+          _locationName = resolvedName;
+        }
+        final cName = resolvedClient;
+        if (cName != null && cName.isNotEmpty) {
+          _clientName = cName;
+        }
+      });
 
-      // اختر المعرف إما من الرد أو من القيمة الحالية
-      final usedLocId = locId ?? _locationId!;
+      final usedLocId = locId;
+
+      if (!withinRadius) {
+        final distText = distanceMeters != null
+            ? '${distanceMeters!.toStringAsFixed(1)}م'
+            : 'خارج النطاق';
+        final radiusText = allowedRadius != null
+            ? '${allowedRadius!.toStringAsFixed(0)}م'
+            : 'النطاق المحدد';
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                  'تنبيه: أنت خارج نطاق الموقع (${distText} مقابل السماح ${radiusText}). سيتم إرسال مخالفة تلقائيًا إذا استمر الابتعاد.'),
+            ),
+          );
+        }
+      }
+
+      if (forceLocationPing) {
+        await sendLocationPing(
+          baseUrl: kBaseUrl,
+          token: token,
+          pos: pos,
+          accuracyOverride: pos.accuracy,
+          recordedAt: DateTime.now().toUtc(),
+        ).catchError((_) {});
+      }
 
       final res = await sendAttendanceWithPosition(
         baseUrl: kBaseUrl,
@@ -326,17 +990,34 @@ class _AttendancePageState extends State<AttendancePage> {
         pos: pos,
         earlyReason: reason,
         earlyAttachment: attachment,
+        biometricVerified: result.biometricVerified,
+        biometricMethod: result.method,
+        biometricAttempts: result.attempts,
       );
-
       if (res.ok) {
+        final data = res.data;
+        final responseAction = data?['action']?.toString();
+        final canonicalAction =
+            _normalizeAction(responseAction) ?? _normalizeAction(action) ?? action;
+        final recordedRaw = data?['recorded_at'] ??
+            data?['timestamp'] ??
+            data?['time'] ??
+            data?['checked_at'];
+        final recordedAt = _tryParseDateTime(recordedRaw);
+        if (data != null) {
+          _applyMonitoringConfig(
+            _asMap(data['monitoring']),
+            nextPingSeconds: _asInt(data['next_ping_seconds']),
+          );
+        }
         setState(() {
-          _checkedIn = (action == 'check_in');
-          _time = DateTime.now();
+          _checkedIn = (canonicalAction == 'check_in');
+          _lastAction = canonicalAction;
+          _time = recordedAt ?? DateTime.now();
           _lastServerMessage = res.message;
-          _lastData = res.data;
+          _lastData = data;
 
           // حدّث معلومات الموقع من الرد الرئيسي أيضًا
-          final data = res.data;
           if (data != null) {
             final locName = data['location_name']?.toString();
             if (locName != null && locName.isNotEmpty) {
@@ -348,6 +1029,36 @@ class _AttendancePageState extends State<AttendancePage> {
             }
           }
         });
+        await _persistLastAttendanceState(
+          action: canonicalAction,
+          timestamp: _time ?? DateTime.now(),
+          message: res.message,
+          data: data,
+        );
+        _updateLocationMonitoring(_checkedIn);
+        if (mounted && data != null) {
+          final violation = data['violation'] == true;
+          final escalated = data['violation_escalated'] == true;
+          final reason = (data['violation_reason'] ?? '').toString();
+          final duration = data['violation_outside_minutes'];
+          if (violation) {
+            final msg = StringBuffer();
+            if (reason.isNotEmpty) {
+              msg.write(reason);
+            } else {
+              msg.write('تم تسجيل مخالفة موقع.');
+            }
+            if (duration is num && duration > 0) {
+              msg.write(' مدة الابتعاد التقريبية: ${duration.toStringAsFixed(0)} دقيقة.');
+            }
+            if (escalated) {
+              msg.write(' تم إرسال تنبيه للإدارة.');
+            }
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(msg.toString())),
+            );
+          }
+        }
       } else {
         _toast(res.message);
       }
@@ -356,6 +1067,42 @@ class _AttendancePageState extends State<AttendancePage> {
     } finally {
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  Future<void> checkIn() async {
+    BiometricAuthService biometricService = BiometricAuthService();
+    final result = await biometricService.authenticateUserWithRetries();
+
+    if (!result.biometricVerified) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل التحقق البيومتري بعد ${result.attempts} محاولات')),
+      );
+      return;
+    }
+
+    await _handleAction(
+      "check_in",
+      biometricResult: result,
+    );
+  }
+
+  Future<void> checkOut() async {
+    BiometricAuthService biometricService = BiometricAuthService();
+    final result = await biometricService.authenticateUserWithRetries();
+
+    if (!result.biometricVerified) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('فشل التحقق البيومتري بعد ${result.attempts} محاولات')),
+      );
+      return;
+    }
+
+    await _handleAction(
+      "check_out",
+      biometricResult: result,
+    );
   }
 
   Future<void> _openEarlyCheckoutDialog() async {
@@ -444,207 +1191,334 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final timeStr = _time == null ? null : DateFormat.Hm().format(_time!);
+    final statusKey = _normalizeAction(_lastAction) ?? (_checkedIn ? 'check_in' : null);
+    final statusText = _statusLabelFor(statusKey);
+    final statusIcon = _statusIconFor(statusKey);
+    final timeStr = (statusKey == null || _time == null) ? null : DateFormat.Hm().format(_time!);
+    final shiftLocked = !_canPerformAttendanceActions;
+    final shiftStartStr = _shiftWindowStart != null ? DateFormat('HH:mm').format(_shiftWindowStart!) : null;
+    final shiftEndStr = _shiftWindowEnd != null ? DateFormat('HH:mm').format(_shiftWindowEnd!) : null;
+    final summaryText = (_lastServerMessage != null && _lastServerMessage!.trim().isNotEmpty)
+        ? _lastServerMessage!.trim()
+        : statusText;
 
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        if (_unrestricted)
-          Card(
-            color: cs.secondaryContainer,
-            child: ListTile(
-              leading: const Icon(Icons.info_outline),
-              title: const Text('وردية غير مقيّدة'),
-              subtitle: const Text('يمكنك تسجيل الحضور أو الانصراف في أي وقت.'),
+    return RefreshIndicator(
+      onRefresh: () => _bootstrap(forceEmployeeRefresh: true),
+      child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        padding: const EdgeInsets.all(16),
+        children: [
+          if (_unrestricted)
+            Card(
+              color: cs.secondaryContainer,
+              child: ListTile(
+                leading: const Icon(Icons.info_outline),
+                title: const Text('وردية غير مقيّدة'),
+                subtitle: const Text('يمكنك تسجيل الحضور أو الانصراف في أي وقت.'),
+              ),
             ),
-          ),
-
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(_checkedIn ? Icons.login : Icons.logout, size: 36, color: cs.primary),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        _checkedIn ? "تم تسجيل الحضور" : "تم تسجيل الانصراف",
-                        style: Theme.of(context).textTheme.titleLarge,
-                      ),
-                    ),
-                    if (timeStr != null) Text(timeStr),
-                  ],
+          if (!_unrestricted && (_shiftWindowStart != null || _shiftWindowEnd != null))
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.schedule),
+                title: Text('نافذة الوردية${_currentShiftName != null ? ' — ${_currentShiftName!}' : ''}'),
+                subtitle: Text(
+                  '${shiftStartStr ?? '--'} → ${shiftEndStr ?? '--'}',
                 ),
-                if (_locationName != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Text('الموقع: $_locationName',
-                        style: Theme.of(context).textTheme.titleSmall),
-                  ),
-                // عرض اسم العميل المرتبط بالموقع إن وجد
-                if (_clientName != null && _clientName!.trim().isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 4.0),
-                    child: Text('العميل: $_clientName',
-                        style: Theme.of(context).textTheme.titleSmall),
-                  ),
-                // اختيار الموقع يدويًا من قائمة المواقع المتاحة
-                // تم إيقاف الاختيار اليدوي ليكون التحديد تلقائيًا دومًا
-                if (false && _locations.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8.0),
-                    child: Builder(
-                      builder: (context) {
-                        // حدد القيمة المختارة فقط إذا كانت موجودة ضمن العناصر
-                        String? selectedValue = _locationId;
-                        if (_locationId != null) {
-                          bool exists = false;
-                          for (final loc in _locations) {
-                            try {
-                              final dyn = loc as dynamic;
-                              final id  = (dyn.id ?? dyn['id']).toString();
-                              if (id == _locationId) {
-                                exists = true;
-                                break;
-                              }
-                            } catch (_) {}
-                          }
-                          if (!exists) selectedValue = null;
-                        }
-                        // بُنية العناصر في القائمة: إزالة أي تكرار بالقيمة نفسها
-                        final Map<String, dynamic> uniqueMap = {};
-                        for (final loc in _locations) {
-                          try {
-                            final dyn = loc as dynamic;
-                            final id = (dyn.id ?? dyn['id']).toString();
-                            uniqueMap[id] = loc;
-                          } catch (_) {
-                            // تجاهل العناصر غير الصالحة
-                          }
-                        }
-                        final List<DropdownMenuItem<String>> items = uniqueMap.entries.map((e) {
-                          final loc = e.value;
-                          try {
-                            final dyn = loc as dynamic;
-                            final name = (dyn.name ?? dyn['name'])?.toString() ?? '';
-                            return DropdownMenuItem<String>(value: e.key, child: Text(name));
-                          } catch (_) {
-                            return const DropdownMenuItem<String>(value: null, child: Text('خطأ'));
-                          }
-                        }).toList();
-
-                        // إذا كانت القيمة الحالية غير موجودة ضمن العناصر، نعطي null
-                        final currentVal = (selectedValue != null && uniqueMap.containsKey(selectedValue)) ? selectedValue : null;
-
-                        return DropdownButtonFormField<String>(
-                          decoration: const InputDecoration(
-                            labelText: 'اختر الموقع يدويًا',
-                            border: OutlineInputBorder(),
-                          ),
-                          value: currentVal,
-                          items: items,
-                          onChanged: (val) {
-                            if (val == null) return;
-                            final sel = uniqueMap[val];
-                            setState(() {
-                              _locationId = val;
-                              try {
-                                final dyn = sel as dynamic;
-                                _locationName = (dyn.name ?? dyn['name'])?.toString();
-                                final cName = (dyn.client_name ?? dyn['client_name'] ?? dyn.clientName ?? dyn['clientName']);
-                                if (cName != null && cName.toString().isNotEmpty) {
-                                  _clientName = cName.toString();
-                                }
-                              } catch (_) {}
-                            });
-                          },
-                        );
-                      },
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 10),
-
-        if (_shiftHint != null && _shiftHint!.trim().isNotEmpty)
-          Padding(
-            padding: const EdgeInsets.only(bottom: 8.0),
-            child: Row(
-              children: [
-                const Icon(Icons.schedule, size: 18),
-                const SizedBox(width: 6),
-                Expanded(child: Text(_shiftHint!, style: const TextStyle(fontSize: 12))),
-              ],
-            ),
-          ),
-
-        Row(
-          children: [
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.login),
-                label: const Text("تسجيل الحضور"),
-                onPressed: (_checkedIn || _loading)
-                    ? null
-                    : () => _handleAction("check_in"),
+                trailing: shiftLocked
+                    ? const Icon(Icons.lock_clock, color: Colors.redAccent)
+                    : const Icon(Icons.lock_open, color: Colors.green),
               ),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                icon: const Icon(Icons.logout),
-                label: const Text("تسجيل الانصراف"),
-                onPressed: (!_checkedIn || _loading)
-                    ? null
-                    : () => _handleAction("check_out"),
+          if (_shiftAssignmentLocationName != null &&
+              _locationName != null &&
+              _shiftAssignmentLocationName!.trim().isNotEmpty &&
+              _locationName!.trim().isNotEmpty &&
+              !_shiftMatchesLocation)
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: ListTile(
+                leading: const Icon(Icons.warning_amber_rounded),
+                title: const Text('تنبيه اختلاف الموقع'),
+                subtitle: Text(
+                  'الوردية الحالية مرتبطة بالموقع: ${_shiftAssignmentLocationName!}. الموقع المحدد الآن: ${_locationName!}. يرجى التأكد من اختيار الموقع الصحيح.',
+                ),
               ),
             ),
-          ],
-        ),
-        const SizedBox(height: 10),
-        Align(
-          alignment: Alignment.centerRight,
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.emergency_share_outlined),
-            label: const Text("انصراف مبكر"),
-            onPressed: (_loading) ? null : _openEarlyCheckoutDialog,
-          ),
-        ),
-
-        if (_loading) ...[
-          const SizedBox(height: 16),
-          const Center(child: CircularProgressIndicator()),
-        ],
-
-        if (_lastServerMessage != null || _lastData != null) ...[
-          const SizedBox(height: 16),
+          if (shiftLocked && !_unrestricted)
+            Card(
+              color: Theme.of(context).colorScheme.errorContainer,
+              child: const ListTile(
+                leading: Icon(Icons.error_outline),
+                title: Text('خارج الوردية الحالية'),
+                subtitle: Text('لا يمكن تنفيذ عمليات الحضور أو الانصراف قبل بدء الوردية أو بعد انتهائها.'),
+              ),
+            ),
           Card(
             child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  const Text("تفاصيل آخر تسجيل:",
-                      style: TextStyle(fontWeight: FontWeight.bold)),
-                  const SizedBox(height: 8),
-                  if (_lastServerMessage != null) Text(_lastServerMessage!),
-                  if (_lastData != null) ...[
-                    const SizedBox(height: 8),
-                    _ResultTable(map: _lastData!, fmt: _fmtIsoDateTimeLocal),
-                  ],
+                  Row(
+                    children: [
+                      Icon(statusIcon, size: 36, color: cs.primary),
+                      const SizedBox(width: 16),
+                      Expanded(
+                        child: Text(
+                          summaryText,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                      if (timeStr != null) Text(timeStr),
+                    ],
+                  ),
+                  if (statusText != summaryText && statusText != null && statusText.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text(
+                        statusText,
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
+                  if (_locationName != null)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text('الموقع: $_locationName',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ),
+                  if (_clientName != null && _clientName!.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 4.0),
+                      child: Text('العميل: $_clientName',
+                          style: Theme.of(context).textTheme.titleSmall),
+                    ),
+                  if (_locationsSummary != null && _locationsSummary!.trim().isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 12.0),
+                      child: Text(
+                        'المواقع المتاحة: $_locationsSummary',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                    ),
                 ],
               ),
             ),
           ),
+          const SizedBox(height: 10),
+          if (_shiftHint != null && _shiftHint!.trim().isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                children: [
+                  const Icon(Icons.schedule, size: 18),
+                  const SizedBox(width: 6),
+                  Expanded(child: Text(_shiftHint!, style: const TextStyle(fontSize: 12))),
+                ],
+              ),
+            ),
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.login),
+                  label: const Text("تسجيل الحضور"),
+                  onPressed: (_checkedIn || _loading || !_canPerformAttendanceActions)
+                      ? null
+                      : () => checkIn(),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.logout),
+                  label: const Text("تسجيل الانصراف"),
+                  onPressed: (!_checkedIn || _loading || !_canPerformAttendanceActions)
+                      ? null
+                      : () => checkOut(),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Align(
+            alignment: Alignment.centerRight,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.emergency_share_outlined),
+              label: const Text("انصراف مبكر"),
+              onPressed: (_loading || !_canPerformAttendanceActions) ? null : _openEarlyCheckoutDialog,
+            ),
+          ),
+          if (_loading) ...[
+            const SizedBox(height: 16),
+            const Center(child: CircularProgressIndicator()),
+          ],
+          if (_latestRecordLoading || _lastServerMessage != null || _lastData != null) ...[
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Expanded(
+                          child: Text(
+                            "تفاصيل آخر تسجيل:",
+                            style: TextStyle(fontWeight: FontWeight.bold),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.refresh),
+                          tooltip: 'تحديث',
+                          onPressed: _latestRecordLoading
+                              ? null
+                              : () => _refreshLastAttendanceFromServer(showFeedback: true),
+                        ),
+                      ],
+                    ),
+                    if (_latestRecordLoading) ...[
+                      const SizedBox(height: 8),
+                      const LinearProgressIndicator(),
+                    ],
+                    if (_lastServerMessage != null) ...[
+                      if (!_latestRecordLoading) const SizedBox(height: 8),
+                      Text(_lastServerMessage!),
+                    ],
+                    if (_lastData != null) ...[
+                      const SizedBox(height: 8),
+                      _ResultTable(map: _lastData!, fmt: _fmtIsoDateTimeLocal),
+                    ],
+                  ],
+                ),
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
+  }
+
+  DateTime? _tryParseDateTime(dynamic raw) {
+    if (raw == null) return null;
+    try {
+      return DateTime.parse(raw.toString()).toLocal();
+    } catch (_) {
+      return null;
+    }
+  }
+
+  String? _composeLocationsSummary(List<dynamic>? locations) {
+    if (locations == null || locations.isEmpty) return null;
+    final List<String> names = [];
+    final Set<String> seenIds = {};
+    for (final loc in locations) {
+      try {
+        final dyn = loc as dynamic;
+        final id = (dyn.id ?? dyn['id']).toString();
+        if (seenIds.contains(id)) continue;
+        seenIds.add(id);
+        final rawName = (dyn.name ?? dyn['name'])?.toString();
+        if (rawName != null && rawName.trim().isNotEmpty) {
+          names.add(rawName.trim());
+        }
+      } catch (_) {
+        continue;
+      }
+    }
+    if (names.isEmpty) return null;
+    return names.join('، ');
+  }
+
+  String? _normalizeAction(String? raw) {
+    if (raw == null) return null;
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return null;
+    final collapsed = trimmed.toLowerCase().replaceAll(RegExp(r'[\s_-]'), '');
+    switch (collapsed) {
+      case 'checkin':
+      case 'signin':
+        return 'check_in';
+      case 'checkout':
+      case 'signout':
+        return 'check_out';
+      case 'earlycheckout':
+      case 'earlysignout':
+        return 'early_check_out';
+      default:
+        return null;
+    }
+  }
+
+  String _statusLabelFor(String? action) {
+    switch (_normalizeAction(action)) {
+      case 'check_in':
+        return 'تم تسجيل الحضور';
+      case 'check_out':
+        return 'تم تسجيل الانصراف';
+      case 'early_check_out':
+        return 'تم تسجيل انصراف مبكر';
+      default:
+        return 'لم يتم تسجيل أي إجراء بعد';
+    }
+  }
+
+  IconData _statusIconFor(String? action) {
+    switch (_normalizeAction(action)) {
+      case 'check_in':
+        return Icons.login;
+      case 'check_out':
+        return Icons.logout;
+      case 'early_check_out':
+        return Icons.emergency_share_outlined;
+      default:
+        return Icons.access_time;
+    }
+  }
+
+  Future<void> _persistLastAttendanceState({
+    required String action,
+    required DateTime timestamp,
+    String? message,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final sp = await SharedPreferences.getInstance();
+      final employee = await ApiService.getCachedEmployee();
+      Map<String, dynamic>? safeData;
+      if (data != null) {
+        try {
+          final encoded = jsonEncode(data);
+          safeData = Map<String, dynamic>.from(jsonDecode(encoded) as Map);
+        } catch (_) {
+          safeData = null;
+        }
+      }
+
+      final payload = <String, dynamic>{
+        'action': action,
+        'time': timestamp.toUtc().toIso8601String(),
+        'day': DateFormat('yyyy-MM-dd').format(timestamp.toLocal()),
+        if (employee != null) 'employee_id': employee.id,
+        if (message != null && message.isNotEmpty) 'message': message,
+        if (_locationName != null && _locationName!.isNotEmpty) 'location_name': _locationName,
+        if (_clientName != null && _clientName!.isNotEmpty) 'client_name': _clientName,
+        if (safeData != null) 'data': safeData,
+        if (_shiftWindowStart != null) 'shift_window_start': _shiftWindowStart!.toUtc().toIso8601String(),
+        if (_shiftWindowEnd != null) 'shift_window_end': _shiftWindowEnd!.toUtc().toIso8601String(),
+        'within_shift': _withinShift,
+      };
+
+      await sp.setString(_kLastAttendanceStateKey, jsonEncode(payload));
+    } catch (_) {}
+  }
+
+  @override
+  void dispose() {
+    _autoRefreshTimer?.cancel();
+    _stopLocationMonitoring();
+    super.dispose();
   }
 }
 /// تنسيق عرض النتائج بشكل ودّي
@@ -658,21 +1532,116 @@ class _ResultTable extends StatelessWidget {
     final recId = map['record_id'];
     final employee = map['employee'];
     final location = map['location'];
+    final client = map['client_name'];
     final detail = map['detail'];
     final note = map['note'];
     final un = map['unrestricted'] == true;
     final sws = map['shift_window_start'];
     final swe = map['shift_window_end'];
+    final recordedAt = map['recorded_at'];
+    final checkIn = map['check_in_time'];
+    final checkOut = map['check_out_time'];
+    final actionRaw = map['attendance_action'] ?? map['action'] ?? map['type'];
+    final monitorRaw = map['should_monitor_location'];
+    final violationRaw = map['violation'];
+    final lastPing = map['last_location_ping'];
+    final isTodayRaw = map['is_today'];
+    Map<String, dynamic>? shift = map['shift'] is Map
+        ? Map<String, dynamic>.from(map['shift'] as Map)
+        : null;
+
+    String? actionLabel(String? raw) {
+      if (raw == null) return null;
+      switch (raw) {
+        case 'check_in':
+          return 'تسجيل الحضور';
+        case 'check_out':
+          return 'تسجيل الانصراف';
+        case 'early_check_out':
+          return 'انصراف مبكر';
+        default:
+          return raw;
+      }
+    }
+
+    bool? asBool(dynamic value) {
+      if (value is bool) return value;
+      if (value is String) {
+        final lower = value.trim().toLowerCase();
+        if (lower == 'true') return true;
+        if (lower == 'false') return false;
+      }
+      return null;
+    }
+
+    String _formatBoolLabel(bool? value, {String trueLabel = 'نعم', String falseLabel = 'لا'}) {
+      if (value == null) return '-';
+      return value ? trueLabel : falseLabel;
+    }
+
+    final actionText = actionLabel(actionRaw?.toString());
+    final isTodayFlag = asBool(isTodayRaw);
+    final monitorFlag = asBool(monitorRaw);
+    final violationFlag = asBool(violationRaw);
+    final violationReason = map['violation_reason']?.toString();
+    final shiftName = shift?['name']?.toString();
+    final shiftLocation = shift?['assignment_location_name']?.toString();
+    final shiftMatches = asBool(shift?['matches_location']);
+    final shiftWindowStart = shift?['window_start'] ?? sws;
+    final shiftWindowEnd = shift?['window_end'] ?? swe;
 
     final rows = <_KV>[
       if (detail != null) _KV('الرسالة', detail),
       if (note != null && note.toString().trim().isNotEmpty) _KV('ملاحظة', note),
+      if (actionText != null) _KV('آخر إجراء', actionText),
+      if (recordedAt != null) _KV('وقت التسجيل', fmt(recordedAt)),
+      if (checkIn != null) _KV('وقت الحضور', fmt(checkIn)),
+      if (checkOut != null) _KV('وقت الانصراف', fmt(checkOut)),
       if (employee != null) _KV('الموظف', employee),
       if (location != null) _KV('الموقع', location),
+      if (client != null) _KV('العميل', client),
       if (recId != null) _KV('رقم السجل', recId),
+      if (isTodayFlag != null) _KV('ينتمي لليوم', _formatBoolLabel(isTodayFlag)),
+      if (shiftName != null && shiftName.trim().isNotEmpty) _KV('الوردية', shiftName),
+      if (shiftLocation != null && shiftLocation.trim().isNotEmpty) _KV('موقع الوردية', shiftLocation),
+      if (shiftMatches != null) _KV('الوردية للموقع الحالي', _formatBoolLabel(shiftMatches, trueLabel: 'متطابقة', falseLabel: 'مختلفة')),
       _KV('نوع الوردية', un ? 'غير مقيّدة' : 'مقيّدة'),
-      if (!un) _KV('نافذة الوردية', '${fmt(sws)} → ${fmt(swe)}'),
+      if (!un) _KV('نافذة الوردية', '${fmt(shiftWindowStart ?? sws)} → ${fmt(shiftWindowEnd ?? swe)}'),
+      if (monitorFlag != null)
+        _KV('تتبع الموقع', monitorFlag ? 'مفعّل أثناء الوردية' : 'غير مفعّل'),
+      if (map['violation_warning_minutes'] != null)
+        _KV('مدة السماح للمخالفة (دقائق)', map['violation_warning_minutes'].toString()),
+      if (map['next_ping_seconds'] != null)
+        _KV('الفاصل الحالي (ثواني)', map['next_ping_seconds'].toString()),
+      if (violationFlag == true)
+        _KV(
+          'مخالفة',
+          (violationReason != null && violationReason.trim().isNotEmpty)
+              ? violationReason.trim()
+              : 'تم تسجيل مخالفة الموقع.',
+        ),
     ];
+
+    if (lastPing is Map) {
+      final pingTime = lastPing['recorded_at_local'] ?? lastPing['recorded_at'];
+      final withinRadius = asBool(lastPing['within_radius']);
+      final triggered = asBool(lastPing['violation_triggered']);
+      final distance = lastPing['distance_m'];
+      if (pingTime != null) {
+        rows.add(_KV('آخر تتبع', fmt(pingTime)));
+      }
+      if (distance is num) {
+        rows.add(_KV('المسافة (م)', distance.toStringAsFixed(1)));
+      } else if (distance != null) {
+        rows.add(_KV('المسافة (م)', distance.toString()));
+      }
+      if (withinRadius != null) {
+        rows.add(_KV('حالة الموقع', withinRadius ? 'داخل النطاق' : 'خارج النطاق'));
+      }
+      if (triggered == true) {
+        rows.add(_KV('تنبيه مخالفة', 'تم إطلاق مخالفة الموقع.'));
+      }
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
