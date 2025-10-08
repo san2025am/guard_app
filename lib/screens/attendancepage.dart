@@ -56,6 +56,7 @@ class _AttendancePageState extends State<AttendancePage> {
   String? _shiftAssignmentLocationName;
   bool _shiftMatchesLocation = true;
   bool _latestRecordLoading = false;
+  DateTime? _lastRefreshAt;
   Timer? _autoRefreshTimer;
 
   @override
@@ -729,6 +730,7 @@ class _AttendancePageState extends State<AttendancePage> {
             _currentShiftName = shiftName;
             _shiftAssignmentLocationName = shiftAssignmentLocation;
             _shiftMatchesLocation = shiftMatchesLocation ?? true;
+            _lastRefreshAt = DateTime.now();
           });
           await _clearPersistedAttendanceState();
           _updateLocationMonitoring(false);
@@ -767,6 +769,7 @@ class _AttendancePageState extends State<AttendancePage> {
           _currentShiftName = shiftName;
           _shiftAssignmentLocationName = shiftAssignmentLocation;
           _shiftMatchesLocation = shiftMatchesLocation ?? true;
+          _lastRefreshAt = DateTime.now();
         });
 
         bool hasCheckOut = false;
@@ -817,6 +820,7 @@ class _AttendancePageState extends State<AttendancePage> {
       if (mounted) {
         setState(() {
           _latestRecordLoading = false;
+          _lastRefreshAt ??= DateTime.now();
         });
       }
     }
@@ -1016,6 +1020,7 @@ class _AttendancePageState extends State<AttendancePage> {
           _time = recordedAt ?? DateTime.now();
           _lastServerMessage = res.message;
           _lastData = data;
+          _lastRefreshAt = DateTime.now();
 
           // حدّث معلومات الموقع من الرد الرئيسي أيضًا
           if (data != null) {
@@ -1191,16 +1196,9 @@ class _AttendancePageState extends State<AttendancePage> {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final statusKey = _normalizeAction(_lastAction) ?? (_checkedIn ? 'check_in' : null);
-    final statusText = _statusLabelFor(statusKey);
-    final statusIcon = _statusIconFor(statusKey);
-    final timeStr = (statusKey == null || _time == null) ? null : DateFormat.Hm().format(_time!);
     final shiftLocked = !_canPerformAttendanceActions;
     final shiftStartStr = _shiftWindowStart != null ? DateFormat('HH:mm').format(_shiftWindowStart!) : null;
     final shiftEndStr = _shiftWindowEnd != null ? DateFormat('HH:mm').format(_shiftWindowEnd!) : null;
-    final summaryText = (_lastServerMessage != null && _lastServerMessage!.trim().isNotEmpty)
-        ? _lastServerMessage!.trim()
-        : statusText;
 
     return RefreshIndicator(
       onRefresh: () => _bootstrap(forceEmployeeRefresh: true),
@@ -1254,57 +1252,7 @@ class _AttendancePageState extends State<AttendancePage> {
                 subtitle: Text('لا يمكن تنفيذ عمليات الحضور أو الانصراف قبل بدء الوردية أو بعد انتهائها.'),
               ),
             ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(statusIcon, size: 36, color: cs.primary),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Text(
-                          summaryText,
-                          style: Theme.of(context).textTheme.titleLarge,
-                        ),
-                      ),
-                      if (timeStr != null) Text(timeStr),
-                    ],
-                  ),
-                  if (statusText != summaryText && statusText != null && statusText.trim().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text(
-                        statusText,
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                  if (_locationName != null)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 8.0),
-                      child: Text('الموقع: $_locationName',
-                          style: Theme.of(context).textTheme.titleSmall),
-                    ),
-                  if (_clientName != null && _clientName!.trim().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 4.0),
-                      child: Text('العميل: $_clientName',
-                          style: Theme.of(context).textTheme.titleSmall),
-                    ),
-                  if (_locationsSummary != null && _locationsSummary!.trim().isNotEmpty)
-                    Padding(
-                      padding: const EdgeInsets.only(top: 12.0),
-                      child: Text(
-                        'المواقع المتاحة: $_locationsSummary',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                    ),
-                ],
-              ),
-            ),
-          ),
+          _buildAttendanceSummaryCard(context),
           const SizedBox(height: 10),
           if (_shiftHint != null && _shiftHint!.trim().isNotEmpty)
             Padding(
@@ -1475,6 +1423,178 @@ class _AttendancePageState extends State<AttendancePage> {
       default:
         return Icons.access_time;
     }
+  }
+
+  Color _statusAccentColor(String? actionKey, ColorScheme cs) {
+    switch (actionKey) {
+      case 'check_in':
+        return cs.primary;
+      case 'check_out':
+        return cs.secondary;
+      case 'early_check_out':
+        return cs.error;
+      default:
+        return cs.outlineVariant;
+    }
+  }
+
+  Widget _buildInfoChip(ColorScheme cs, IconData icon, String label) {
+    return Chip(
+      avatar: Icon(icon, size: 16, color: cs.onSurfaceVariant),
+      label: Text(
+        label,
+        style: TextStyle(color: cs.onSurfaceVariant),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      backgroundColor: cs.surfaceVariant.withOpacity(0.6),
+    );
+  }
+
+  Widget _buildAttendanceSummaryCard(BuildContext context) {
+    final cs = Theme.of(context).colorScheme;
+    final normalized = _normalizeAction(_lastAction) ?? (_checkedIn ? 'check_in' : null);
+    final statusTitle = _statusLabelFor(normalized) ?? 'لم يتم تسجيل أي إجراء بعد';
+    final statusIcon = _statusIconFor(normalized);
+    final accent = _statusAccentColor(normalized, cs);
+    final serverMessage = (_lastServerMessage ?? '').trim();
+    final displayMessage = serverMessage.isNotEmpty && serverMessage != statusTitle
+        ? serverMessage
+        : null;
+    final recordedAtLabel = _time != null ? DateFormat('yyyy/MM/dd – HH:mm').format(_time!) : null;
+    final lastRefreshLabel =
+        _lastRefreshAt != null ? DateFormat('HH:mm:ss').format(_lastRefreshAt!) : null;
+    final refreshText = 'آخر تحديث: ${lastRefreshLabel ?? '--:--:--'}';
+
+    final chips = <Widget>[];
+    if (_locationName?.trim().isNotEmpty ?? false) {
+      chips.add(_buildInfoChip(cs, Icons.place_outlined, _locationName!.trim()));
+    } else if (_locationsSummary?.trim().isNotEmpty ?? false) {
+      chips.add(_buildInfoChip(cs, Icons.place_outlined, _locationsSummary!.trim()));
+    }
+    if (_clientName?.trim().isNotEmpty ?? false) {
+      chips.add(_buildInfoChip(cs, Icons.apartment_outlined, _clientName!.trim()));
+    }
+    if (_currentShiftName?.trim().isNotEmpty ?? false) {
+      chips.add(_buildInfoChip(cs, Icons.badge_outlined, _currentShiftName!.trim()));
+    }
+    if (_shiftWindowStart != null || _shiftWindowEnd != null) {
+      final startStr =
+          _shiftWindowStart != null ? DateFormat('HH:mm').format(_shiftWindowStart!) : '--';
+      final endStr = _shiftWindowEnd != null ? DateFormat('HH:mm').format(_shiftWindowEnd!) : '--';
+      chips.add(_buildInfoChip(cs, Icons.schedule, '$startStr → $endStr'));
+    }
+    if (_shiftMatchesLocation == false && _shiftAssignmentLocationName?.trim().isNotEmpty == true) {
+      chips.add(_buildInfoChip(
+        cs,
+        Icons.warning_amber_rounded,
+        'موقع الوردية: ${_shiftAssignmentLocationName!.trim()}',
+      ));
+    }
+    final recordId = _lastData?['record_id']?.toString() ?? _lastData?['id']?.toString();
+    if (recordId != null && recordId.isNotEmpty) {
+      chips.add(_buildInfoChip(cs, Icons.confirmation_number_outlined, '#$recordId'));
+    }
+
+    return Card(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          gradient: LinearGradient(
+            begin: AlignmentDirectional.topEnd,
+            end: AlignmentDirectional.bottomStart,
+            colors: [
+              accent.withOpacity(0.12),
+              cs.surface,
+            ],
+          ),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                CircleAvatar(
+                  backgroundColor: accent.withOpacity(0.18),
+                  foregroundColor: accent,
+                  child: Icon(statusIcon),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        statusTitle,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      if (recordedAtLabel != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 4),
+                          child: Text(
+                            'وقت التسجيل: $recordedAtLabel',
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        ),
+                      if (displayMessage != null)
+                        Container(
+                          margin: const EdgeInsets.only(top: 12),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                          decoration: BoxDecoration(
+                            color: accent.withOpacity(0.14),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            displayMessage,
+                            style: Theme.of(context).textTheme.bodyMedium,
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            if (_latestRecordLoading)
+              const Padding(
+                padding: EdgeInsets.only(top: 12),
+                child: LinearProgressIndicator(minHeight: 3),
+              ),
+            if (chips.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: chips,
+              ),
+            ],
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Text(
+                  refreshText,
+                  style: Theme.of(context).textTheme.bodySmall,
+                ),
+                const Spacer(),
+                TextButton.icon(
+                  onPressed: _latestRecordLoading
+                      ? null
+                      : () => _refreshLastAttendanceFromServer(showFeedback: true),
+                  icon: const Icon(Icons.sync),
+                  label: const Text('تحديث'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Future<void> _persistLastAttendanceState({

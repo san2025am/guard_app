@@ -34,6 +34,15 @@ class _LoginScreenState extends State<LoginScreen> {
   @override
   void dispose() { _u.dispose(); _p.dispose(); super.dispose(); }
 
+  void _showLoginError(ScaffoldMessengerState messenger, Map<String, dynamic> payload, String fallback) {
+    final status = payload['statusCode'];
+    final raw = payload['message'];
+    final messageText = raw == null ? '' : raw.toString().trim();
+    final message = messageText.isNotEmpty ? messageText : fallback;
+    final display = status == null ? message : '$message (رمز $status)';
+    messenger.showSnackBar(SnackBar(content: Text(display)));
+  }
+
   Future<void> _initBiometricAvailability() async {
     final canCheck = await BiometricAuthService.isBiometricAvailable();
     final method = canCheck ? await BiometricAuthService.preferredMethod() : null;
@@ -124,8 +133,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final msg = (login['message']?.toString() ?? 'فشل تسجيل الدخول');
-      messenger.showSnackBar(SnackBar(content: Text(msg)));
+      _showLoginError(messenger, login, 'فشل تسجيل الدخول');
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
@@ -195,8 +203,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final msg = (login['message']?.toString() ?? t.device_verification_required);
-      messenger.showSnackBar(SnackBar(content: Text(msg)));
+      _showLoginError(messenger, login, t.device_verification_required);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
@@ -385,8 +392,7 @@ class _LoginScreenState extends State<LoginScreen> {
         return;
       }
 
-      final msg = (verify['message']?.toString() ?? t.device_verification_required);
-      messenger.showSnackBar(SnackBar(content: Text(msg)));
+      _showLoginError(messenger, verify, t.device_verification_required);
     } catch (e) {
       if (!mounted) return;
       messenger.showSnackBar(SnackBar(content: Text('حدث خطأ: $e')));
